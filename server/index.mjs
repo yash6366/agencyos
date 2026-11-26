@@ -193,7 +193,7 @@ async function auth(req, res, next) {
 const app = express();
 app.use(express.json({ limit: '25mb' }));
 app.set('trust proxy', true);
-const OPEN = ['/', '/api/server', '/api/status', '/api/health'];
+const OPEN = ['/', '/api', '/api/server', '/api/status', '/api/health'];
 
 let isReady = false;
 let readyError = null;
@@ -248,7 +248,7 @@ async function status() {
   return out;
 }
 app.get('/api/status', async (_q, res) => res.json(await status()));
-app.get(['/', '/api/server'], async (_q, res) => {
+app.get(['/', '/api', '/api/server'], async (_q, res) => {
   const s = await status(); const ok = s.db.connected;
   const row = (k, v) => '<tr><td>' + esc(k) + '</td><td><b>' + esc(v) + '</b></td></tr>';
   res.send('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="10"><title>AgencyOS Server</title><style>body{margin:0;background:#F8F9FB;font:14px Inter,Segoe UI,Arial;color:#111827}main{max-width:900px;margin:32px auto;padding:0 16px}.card{background:#fff;border:1px solid #E5E7EB;border-radius:13px;padding:20px;margin-bottom:16px}h1{color:#0B1738;margin:0 0 4px;font-size:22px}.mark{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#0B1738;color:#fff;font-weight:800;margin-right:10px;vertical-align:middle}.pill{display:inline-block;padding:5px 11px;border-radius:999px;font-weight:700;font-size:12px}.g{background:#E6F6EF;color:#087F59}.r{background:#FEEDEC;color:#B42318}table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid #F1F2F5;text-align:left;font-size:13px}th{background:#FAFBFC;color:#667085;font-size:11px;text-transform:uppercase}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:700px){.grid{grid-template-columns:1fr}}small{color:#667085}</style></head><body><main>'
