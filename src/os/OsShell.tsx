@@ -83,9 +83,9 @@ export const OsSidebar: React.FC<{
           />
         </div>
 
-        {/* Quick Search Trigger */}
-        <div style={{ display: 'flex', gap: 6, margin: '12px 14px 4px' }}>
-          <div className="nav-search" style={{ margin: 0, flex: 1 }}>
+        {/* Filter Navigation */}
+        <div style={{ margin: '12px 14px 4px' }}>
+          <div className="nav-search" style={{ margin: 0, width: '100%' }}>
             <Icon name="search" size={15} />
             <input
               placeholder="Filter menu..."
@@ -94,16 +94,6 @@ export const OsSidebar: React.FC<{
               aria-label="Filter navigation"
             />
           </div>
-          {onOpenSearch && (
-            <button
-              onClick={onOpenSearch}
-              className="top-icon"
-              title="Global Enterprise Search (Ctrl+K)"
-              style={{ width: 35, height: 35, borderRadius: 8, flex: 'none', background: '#F8F9FB' }}
-            >
-              <kbd style={{ fontSize: 10, fontWeight: 800, color: '#475467' }}>⌘K</kbd>
-            </button>
-          )}
         </div>
 
         {/* 10 Collapsible Navigation Groups */}
@@ -232,22 +222,6 @@ export const OsTopbar: React.FC<{
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
         <button className="top-icon mobile-toggle" aria-label="Open menu" onClick={onMenu}>
           <Icon name="menu" size={19} />
-        </button>
-
-        {/* Header Back Button */}
-        <button
-          className="top-icon"
-          disabled={!canGoBack}
-          onClick={() => goBack()}
-          title={canGoBack ? 'Go back' : 'No previous history'}
-          style={{
-            opacity: canGoBack ? 1 : 0.35,
-            cursor: canGoBack ? 'pointer' : 'default',
-            width: 34,
-            height: 34,
-          }}
-        >
-          <Icon name="chevronLeft" size={16} />
         </button>
 
         {/* Dynamic Clickable Breadcrumbs */}

@@ -28,6 +28,10 @@ const PROBLEMS = [];
 if (!E.DATABASE_URL && !E.DB_PASSWORD) { PROBLEMS.push('DATABASE_URL is missing (Vercel > Settings > Environment Variables, then Redeploy)'); console.error('Database settings missing in .env (DATABASE_URL or DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)'); if (!E.VERCEL) process.exit(1); }
 const STARTED = Date.now();
 if (SECRET.length < 16) { PROBLEMS.push('JWT_SECRET is missing or shorter than 16 characters'); console.error('JWT_SECRET in .env must be at least 16 characters'); if (!E.VERCEL) process.exit(1); }
+if (E.TOKEN_ENCRYPTION_KEY && E.TOKEN_ENCRYPTION_KEY.length < 16) {
+  PROBLEMS.push('TOKEN_ENCRYPTION_KEY is shorter than 16 characters');
+  console.warn('Security notice: TOKEN_ENCRYPTION_KEY should be at least 32 characters for robust AES-256 key derivation');
+}
 // AGENCYOS_SUPABASE: SSL for cloud databases (DB_SSL=true, or automatic for supabase.com)
 const USE_SSL = /^(1|true|yes|require)$/i.test(E.DB_SSL || '') || /supabase/i.test((E.DATABASE_URL || '') + (E.DB_HOST || ''));
 const SSL = USE_SSL ? { rejectUnauthorized: false } : undefined;
@@ -43,7 +47,7 @@ pool.on('error', (err) => {
   console.warn('PostgreSQL pool background notice:', err.message);
 });
 const dbInfo = () => { if (E.DATABASE_URL && !E.DB_PASSWORD) { try { const u = new URL(E.DATABASE_URL); return { host: u.hostname, port: u.port || '5432', user: decodeURIComponent(u.username), database: u.pathname.slice(1) }; } catch { return {}; } } return { host: DB.host, port: DB.port, user: DB.user, database: DB.database }; };
-const DEFAULT_PASSWORD = 'Welcome@123';
+const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
 const clientHash = (pw) => crypto.createHash('sha256').update('paa-salt:' + pw).digest('hex'); // same as the browser
 
 // ---------------------------------------------------------------- tables

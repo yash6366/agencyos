@@ -15,7 +15,8 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, T } from './migrate.mjs';
 
-const DEFAULT_PASSWORD = 'Welcome@123';
+const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
+const ADMIN_EMAIL = process.env.INITIAL_ADMIN_EMAIL || 'rajesh.sharma@priorityadsagency.com';
 
 const DEPARTMENTS = [
   { id: 'dept-1', name: 'Executive & Strategy', code: 'EXEC', employeeCount: 2, description: 'Executive leadership & business direction' },
@@ -62,7 +63,7 @@ const BASE_EMPLOYEES = [
     id: 'emp-1',
     employeeId: 'PAA-EMP-001',
     name: 'Rajesh Sharma',
-    email: 'rajesh.sharma@priorityadsagency.com',
+    email: ADMIN_EMAIL,
     phone: '+91 9845011223',
     role: 'super_admin',
     status: 'active',

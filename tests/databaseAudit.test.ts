@@ -146,3 +146,26 @@ test('Database Audit: Mock Fresh Database Migration & Seed Simulation', async ()
   }
   assert.strictEqual(newlyApplied, 0, 'Re-running migrations must not re-execute already tracked migrations');
 });
+
+test('Security & Configuration Audit: Credentials, Token Encryption & Environment Switching', () => {
+  // 1. Verify token encryption key derivation
+  const customSecret = 'my-custom-32-byte-token-secret-12345';
+  const sampleToken = 'ya29.sample_oauth_access_token_value';
+  
+  // Dynamic import of crypto utilities
+  import('../server/utils/crypto.mjs').then(({ encryptToken, decryptToken, isEncryptedToken }) => {
+    const encrypted = encryptToken(sampleToken, customSecret);
+    assert.notStrictEqual(encrypted, sampleToken);
+    assert.ok(isEncryptedToken(encrypted), 'Generated token format must be valid encrypted token');
+    
+    const decrypted = decryptToken(encrypted, customSecret);
+    assert.strictEqual(decrypted, sampleToken, 'Decrypted token must match original plaintext');
+  });
+
+  // 2. Verify .env.example contains no hardcoded real secrets
+  const envExample = fs.readFileSync(path.join(__dirname, '../.env.example'), 'utf8');
+  assert.ok(!envExample.includes('PriorityErp2026x'), 'Example env must not contain real passwords');
+  assert.ok(!envExample.includes('aws-0-ap-south-1.pooler.supabase.com'), 'Example env must not contain real hosts');
+  assert.ok(envExample.includes('INITIAL_ADMIN_EMAIL'), 'Example env exposes INITIAL_ADMIN_EMAIL');
+  assert.ok(envExample.includes('INITIAL_ADMIN_PASSWORD'), 'Example env exposes INITIAL_ADMIN_PASSWORD');
+});
