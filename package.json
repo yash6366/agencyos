@@ -11,6 +11,9 @@
     "lint": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "server": "node server/index.mjs",
+    "db:migrate": "node server/migrate.mjs",
+    "db:seed": "node server/seed.mjs",
+    "db:setup": "node server/migrate.mjs && node server/seed.mjs",
     "dev:web": "vite --port=3000 --host=0.0.0.0"
   },
   "engines": {

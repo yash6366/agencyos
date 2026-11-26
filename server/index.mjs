@@ -9,10 +9,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fs from 'fs';
+import path from 'path';
 import { encryptToken, decryptToken } from './utils/crypto.mjs';
 import { convertLead } from './services/leadService.mjs';
 import { createInvoice, calculateInvoiceTotals } from './services/invoiceService.mjs';
 import { calculateServerPayslip } from './services/payrollCalculator.mjs';
+import { runMigrations } from './migrate.mjs';
 
 import { createRequire } from 'module';
 const D = createRequire(import.meta.url)('./defaults.json'); // AGENCYOS_VERCEL
@@ -81,38 +83,7 @@ const HR_ROLES = ['super_admin', 'admin', 'hr', 'hr_executive'];
 
 // ---------------------------------------------------------------- schema (created automatically)
 async function migrate() {
-  const sql = [];
-  for (const k of TABLE_KEYS) {
-    const d = T[k];
-    sql.push(`CREATE TABLE IF NOT EXISTS ${d.t} (id text PRIMARY KEY, version integer NOT NULL DEFAULT 1, ${d.cols.map(([c, , ty]) => `${c} ${ty || 'text'}`).join(', ')}, data jsonb NOT NULL, pos double precision NOT NULL DEFAULT 0, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), updated_by text)`);
-    sql.push(`ALTER TABLE ${d.t} ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1`);
-    for (const [c] of d.cols.filter(([c]) => /_id$|status|date|email|code|number/.test(c))) sql.push(`CREATE INDEX IF NOT EXISTS ${d.t}_${c}_idx ON ${d.t} (${c})`);
-  }
-  sql.push(`CREATE TABLE IF NOT EXISTS app_records (store text NOT NULL, id text NOT NULL, data jsonb NOT NULL, version integer NOT NULL DEFAULT 1, pos double precision NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now(), updated_by text, PRIMARY KEY (store, id))`);
-  sql.push(`ALTER TABLE app_records ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1`);
-  sql.push(`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value jsonb, version integer NOT NULL DEFAULT 1, updated_at timestamptz NOT NULL DEFAULT now(), updated_by text)`);
-  sql.push(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1`);
-  sql.push(`CREATE TABLE IF NOT EXISTS user_credentials (employee_id text PRIMARY KEY, password_hash text NOT NULL, must_change boolean NOT NULL DEFAULT true, updated_at timestamptz NOT NULL DEFAULT now(), updated_by text)`);
-  sql.push(`CREATE TABLE IF NOT EXISTS sessions (id text PRIMARY KEY, employee_id text NOT NULL, ip text, user_agent text, created_at timestamptz NOT NULL DEFAULT now(), last_seen timestamptz NOT NULL DEFAULT now(), revoked_at timestamptz)`);
-  sql.push(`CREATE TABLE IF NOT EXISTS login_events (id bigserial PRIMARY KEY, employee_id text, login text, ok boolean NOT NULL, reason text, ip text, user_agent text, at timestamptz NOT NULL DEFAULT now())`);
-  sql.push(`CREATE TABLE IF NOT EXISTS sync_events (id bigserial PRIMARY KEY, store text NOT NULL, by_employee text, at timestamptz NOT NULL DEFAULT now())`);
-  sql.push(`CREATE TABLE IF NOT EXISTS deleted_records (id bigserial PRIMARY KEY, store text NOT NULL, record_id text NOT NULL, data jsonb, deleted_by text, deleted_at timestamptz NOT NULL DEFAULT now())`);
-  // audit trail is append-only: block UPDATE / DELETE even from SQL tools
-  sql.push(`CREATE OR REPLACE FUNCTION audit_no_change() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'audit_logs is append-only'; END $$ LANGUAGE plpgsql`);
-  sql.push(`DROP TRIGGER IF EXISTS audit_logs_lock ON audit_logs`);
-  sql.push(`CREATE TRIGGER audit_logs_lock BEFORE UPDATE OR DELETE ON audit_logs FOR EACH ROW EXECUTE FUNCTION audit_no_change()`);
-
-  try {
-    const migPath = new URL('./migrations/001_relational_constraints.sql', import.meta.url);
-    if (fs.existsSync(migPath)) {
-      const migSql = fs.readFileSync(migPath, 'utf8');
-      sql.push(migSql);
-    }
-  } catch (err) {
-    console.warn('Migration file notice:', err.message);
-  }
-
-  for (const s of sql) await pool.query(s);
+  await runMigrations(pool);
 }
 
 // ---------------------------------------------------------------- permissions
@@ -696,7 +667,10 @@ app.put('/api/auth/profile', auth, async (req, res) => {
     date: new Date().toISOString().split('T')[0],
     time: new Date().toLocaleTimeString('en-IN'),
   };
-  await pool.query("INSERT INTO audit_logs (id, data, updated_by) VALUES ($1, $2, $3)", [auditId, auditLog, u.id]).catch(() => {});
+  await pool.query(
+    "INSERT INTO audit_logs (id, user_id, user_name, action, related_record, date, time, data, updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    [auditId, u.id, u.name, auditLog.action, auditLog.relatedRecord, auditLog.date, auditLog.time, auditLog, u.id]
+  ).catch(() => {});
 
   res.json({ ok: true, profile: isHrOrAdmin || PAYROLL_ROLES.includes(u.role) ? allowedUpdates : stripSalary(allowedUpdates) });
 });
