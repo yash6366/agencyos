@@ -15,7 +15,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, T } from './migrate.mjs';
 
-const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(8).toString('hex') + '!Aa1';
+const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
 const ADMIN_EMAIL = process.env.INITIAL_ADMIN_EMAIL || 'rajesh.sharma@priorityadsagency.com';
 
 const DEPARTMENTS = [
@@ -225,6 +225,7 @@ export async function seedDatabase(targetPool = pool) {
   const client = await targetPool.connect();
   try {
     console.log('[AgencyOS Seed] Starting master data seeding...');
+    console.log(`[AgencyOS Seed] Super Admin initial credentials: ${ADMIN_EMAIL} / ${DEFAULT_PASSWORD}`);
     await client.query('BEGIN');
 
     // 1. Seed Company Settings
@@ -274,7 +275,8 @@ export async function seedDatabase(targetPool = pool) {
       await client.query(
         `INSERT INTO public.user_credentials (employee_id, password_hash, must_change, updated_by)
          VALUES ($1, $2, true, 'seed')
-         ON CONFLICT (employee_id) DO NOTHING`,
+         ON CONFLICT (employee_id) DO UPDATE SET password_hash = EXCLUDED.password_hash, must_change = true
+         WHERE user_credentials.must_change = true`,
         [emp.id, defaultPasswordHash]
       );
 
@@ -322,7 +324,8 @@ export async function seedDatabase(targetPool = pool) {
       await client.query(
         `INSERT INTO public.user_credentials (employee_id, password_hash, must_change, updated_by)
          VALUES ($1, $2, true, 'seed')
-         ON CONFLICT (employee_id) DO NOTHING`,
+         ON CONFLICT (employee_id) DO UPDATE SET password_hash = EXCLUDED.password_hash, must_change = true
+         WHERE user_credentials.must_change = true`,
         [empId, defaultPasswordHash]
       );
 

@@ -883,6 +883,38 @@ COPY public.tasks (id, task_code, title, project_id, assigned_employee_id, statu
 --
 
 COPY public.user_credentials (employee_id, password_hash, must_change, updated_at, updated_by) FROM stdin;
+emp-1	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-2	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-3	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-4	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-5	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-6	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-7	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-manager	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-recruiter	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-hr_executive	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-finance	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-accountant	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-billing_executive	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-sales_manager	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-sales_team_leader	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-sales_executive	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-telecaller	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-business_development	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-client_relationship_manager	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-client_support_executive	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-operations_manager	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-project_manager	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-project_coordinator	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-team_leader	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-employee	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-intern	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-automation_specialist	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-freelancer	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-consultant	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-auditor	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-vendor	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
+emp-role-admin	$2b$10$FQTFz3PKxBpPnL.WdBRC/OD203gz6Q4a77uHsKwlCS40xUoCzEnqm	t	2026-11-11 13:12:36.100891+05:30	seed
 \.
 
 

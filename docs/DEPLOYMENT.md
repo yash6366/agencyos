@@ -99,6 +99,9 @@ AgencyOS includes full serverless configuration in `vercel.json` and API proxies
    - `DATABASE_URL`
    - `DB_SSL=true`
    - `JWT_SECRET`
+   - `INITIAL_ADMIN_PASSWORD` (defaults to `Welcome@123` if not provided)
+   - `INITIAL_ADMIN_EMAIL` (defaults to `rajesh.sharma@priorityadsagency.com`)
+   - `JWT_SECRET`
    - `TOKEN_ENCRYPTION_KEY`
 4. Deploy. Vercel automatically routes `/api/*` to the serverless backend and serves the Vite static build.
 

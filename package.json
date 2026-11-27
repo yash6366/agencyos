@@ -14,10 +14,11 @@
     "db:migrate": "node server/migrate.mjs",
     "db:seed": "node server/seed.mjs",
     "db:setup": "node server/migrate.mjs && node server/seed.mjs",
+    "reset:admin": "node server/reset-admin-password.mjs",
     "dev:web": "vite --port=3000 --host=0.0.0.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

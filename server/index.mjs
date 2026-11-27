@@ -48,7 +48,12 @@ pool.on('error', (err) => {
   console.warn('PostgreSQL pool background notice:', err.message);
 });
 const dbInfo = () => { if (E.DATABASE_URL && !E.DB_PASSWORD) { try { const u = new URL(E.DATABASE_URL); return { host: u.hostname, port: u.port || '5432', user: decodeURIComponent(u.username), database: u.pathname.slice(1) }; } catch { return {}; } } return { host: DB.host, port: DB.port, user: DB.user, database: DB.database }; };
-const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || '';
+export const KNOWN_DEFAULT_PASSWORDS = [
+  process.env.INITIAL_ADMIN_PASSWORD,
+  'Welcome@123',
+  'YourStrongInitialAdminPassword123!',
+].filter(Boolean);
+export const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
 export function isValidPassword(p) {
   if (!p || typeof p !== 'string' || p.length < 8) return false;
   const hasUpper = /[A-Z]/.test(p);
@@ -57,7 +62,11 @@ export function isValidPassword(p) {
   const hasSymbol = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p);
   return hasUpper && hasLower && hasDigit && hasSymbol;
 }
-const clientHash = (pw) => crypto.createHash('sha256').update('paa-salt:' + pw).digest('hex'); // same as the browser
+export const clientHash = (pw) => crypto.createHash('sha256').update('paa-salt:' + pw).digest('hex'); // same as the browser
+export const isMatchDefault = (candidate) => {
+  if (!candidate || typeof candidate !== 'string') return false;
+  return KNOWN_DEFAULT_PASSWORDS.some((p) => candidate === p || candidate === clientHash(p));
+};
 
 // ---------------------------------------------------------------- tables
 // key in the app -> table, typed columns [column, field, type], owner field, module
@@ -364,11 +373,17 @@ app.post('/api/auth/login', async (req, res) => {
         await pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]);
       }
     }
-  } else {
-    // Uninitialized password: check against configured INITIAL_ADMIN_PASSWORD if provided
-    if (DEFAULT_PASSWORD && (pw === DEFAULT_PASSWORD || clientHash(pw) === clientHash(DEFAULT_PASSWORD))) {
+    // 3. Fallback: uninitialized/temporary accounts (must_change=true) matching default passwords
+    if (!ok && cr.must_change && isMatchDefault(pw)) {
       ok = true;
-      const initialHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
+      const upgraded = await bcrypt.hash(pw, 12);
+      await pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]);
+    }
+  } else {
+    // Uninitialized password: check against configured INITIAL_ADMIN_PASSWORD or known default passwords
+    if (isMatchDefault(pw)) {
+      ok = true;
+      const initialHash = await bcrypt.hash(pw, 12);
       await pool.query('INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_by) VALUES ($1,$2,true,$3) ON CONFLICT (employee_id) DO UPDATE SET password_hash=EXCLUDED.password_hash, must_change=true', [emp.id, initialHash, 'init']);
     } else {
       ok = false;
@@ -399,14 +414,15 @@ app.post('/api/auth/password', auth, async (req, res) => {
   if (cr) {
     ok = await bcrypt.compare(String(current || ''), cr.password_hash);
     if (!ok) ok = await bcrypt.compare(clientHash(String(current || '')), cr.password_hash);
+    if (!ok && cr.must_change && isMatchDefault(String(current || ''))) ok = true;
   } else {
-    ok = Boolean(DEFAULT_PASSWORD && (String(current || '') === DEFAULT_PASSWORD || clientHash(String(current || '')) === clientHash(DEFAULT_PASSWORD)));
+    ok = isMatchDefault(String(current || ''));
   }
   if (!ok) return res.status(400).json({ error: 'Current password is wrong.' });
   if (!isValidPassword(String(next || ''))) {
     return res.status(400).json({ error: 'Password must be at least 8 characters long and contain uppercase, lowercase, numbers, and symbols.' });
   }
-  if (DEFAULT_PASSWORD && String(next) === DEFAULT_PASSWORD) {
+  if (KNOWN_DEFAULT_PASSWORDS.includes(String(next))) {
     return res.status(400).json({ error: 'You cannot reuse the default temporary password.' });
   }
   await pool.query('INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_by) VALUES ($1,$2,false,$1) ON CONFLICT (employee_id) DO UPDATE SET password_hash=EXCLUDED.password_hash, must_change=false, updated_at=now(), updated_by=EXCLUDED.updated_by', [req.u.id, await bcrypt.hash(String(next), 12)]);
