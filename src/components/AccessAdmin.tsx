@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
 import { PERM_KEY, LOCKED_TABS, defaultAccess, effectiveAccess } from '../lib/rbac'; // AGENCYOS_V2_PART14
 import { dbEnabled, dbChangePassword } from '../lib/dbSync';
-import { can, ROLE_LABEL, TAB_ACCESS, DEFAULT_PASSWORD, hashPassword, Credential, LoginEvent, ResetRequest, CRED_KEY, LOGIN_LOG_KEY, RESET_KEY } from '../lib/rbac';
+import { can, ROLE_LABEL, TAB_ACCESS, generateTemporaryPassword, hashPassword, Credential, LoginEvent, ResetRequest, CRED_KEY, LOGIN_LOG_KEY, RESET_KEY } from '../lib/rbac';
 import { useShared, nowStamp } from '../lib/sharedStore';
 import { AddUserPanel } from './AddUserPanel';
 import { inputCls, btnPrimary, btnGhost, btnGood, btnBad, card, th, td, Badge, Field, Tabs, Empty, Modal } from './ui2';
@@ -24,7 +24,7 @@ const ChangePassword: React.FC<{ onDone?: () => void; forced?: boolean }> = ({ o
     const mine = creds.find((c) => c.employeeId === currentUser.id);
     const curHash = await hashPassword(f.cur);
     if (dbEnabled()) { const r0 = pwRule(f.nw); if (r0) return setMsg(r0); if (f.nw !== f.cf) return setMsg('New passwords do not match.'); const er = await dbChangePassword(f.cur, f.nw); if (er) return setMsg(er); }
-    else if (curHash !== (mine?.hash ?? (await hashPassword(DEFAULT_PASSWORD)))) return setMsg('Current password is wrong.');
+    else if (mine?.hash && curHash !== mine.hash) return setMsg('Current password is wrong.');
     const rule = pwRule(f.nw); if (rule) return setMsg(rule);
     if (f.nw !== f.cf) return setMsg('New passwords do not match.');
     if (f.nw === f.cur) return setMsg('New password must be different.');
@@ -69,11 +69,12 @@ export const AccessAdmin: React.FC = () => {
   const resetPassword = async (empId: string, reqId?: string) => {
     const e = employees.find((x) => x.id === empId); if (!e) return;
     if (e.role === 'super_admin' && currentRole !== 'super_admin') return setMsg('Only a Super Admin can reset a Super Admin password.');
-    const hash = await hashPassword(DEFAULT_PASSWORD);
+    const tempPassword = generateTemporaryPassword();
+    const hash = await hashPassword(tempPassword);
     setCreds((p) => [{ employeeId: empId, hash, mustChange: true, updatedAt: nowStamp() }, ...p.filter((c) => c.employeeId !== empId)]);
     if (reqId) setResets((p) => p.map((r) => (r.id === reqId ? { ...r, status: 'done', doneBy: currentUser.name } : r)));
     logAudit('PASSWORD_RESET', e.employeeId, `by ${currentUser.name}`);
-    setMsg(`Password for ${e.name} reset to the temporary password "${DEFAULT_PASSWORD}". They must change it at next login.`);
+    setMsg(`Password for ${e.name} reset to temporary password: "${tempPassword}". They must change it upon their next login.`);
   };
   const setRole = (empId: string, role: UserRole) => {
     const e = employees.find((x) => x.id === empId); if (!e) return;
@@ -132,7 +133,7 @@ export const AccessAdmin: React.FC = () => {
                   </div></td>
                 </tr>);
             })}</tbody></table></div>
-          <p className="text-[11px] text-slate-400 mt-2">New employees and reset accounts use the temporary password <b>{DEFAULT_PASSWORD}</b> and must change it at first login.</p>
+          <p className="text-[11px] text-slate-400 mt-2">New employees and reset accounts receive a secure temporary password and must change it at first login.</p>
         </div>
       )}
 

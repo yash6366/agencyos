@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserRole, Employee } from '../types';
 import { OS_ROLES } from '../os/osConfig';
-import { DEFAULT_PASSWORD, hashPassword, Credential, CRED_KEY, ROLE_LABEL } from '../lib/rbac';
+import { hashPassword, generateTemporaryPassword, validatePasswordComplexity, Credential, CRED_KEY, ROLE_LABEL } from '../lib/rbac';
 import { useShared, nowStamp } from '../lib/sharedStore';
 import { localDate } from '../lib/dates';
 import { inputCls, btnPrimary, btnGhost } from './ui2';
@@ -35,7 +35,11 @@ export const AddUserPanel: React.FC<{ onDone?: (msg: string) => void }> = ({ onD
     if (employees.some((e) => String(e.email).toLowerCase() === email)) return setErr('A user with this email already exists.');
     if (!f.dept || (f.dept === NEW && !f.newDept.trim())) return setErr('Choose or type a department.');
     if (!f.desig || (f.desig === NEW && !f.newDesig.trim())) return setErr('Choose or type a designation.');
-    if (f.pw) { const r = pwRule(f.pw); if (r) return setErr(r); if (f.pw !== f.pw2) return setErr('Passwords do not match.'); }
+    if (f.pw) {
+      const v = validatePasswordComplexity(f.pw);
+      if (!v.valid) return setErr(v.reason || 'Password does not meet complexity requirements.');
+      if (f.pw !== f.pw2) return setErr('Passwords do not match.');
+    }
 
     const stamp = Date.now();
     let deptId = f.dept;
@@ -57,13 +61,13 @@ export const AddUserPanel: React.FC<{ onDone?: (msg: string) => void }> = ({ onD
       workLocation: 'Bengaluru', workMode: 'office', skills: [], experienceYears: 0, role: f.role as UserRole, status: 'active',
     };
     addEmployee(emp as any);
-    const pw = f.pw || DEFAULT_PASSWORD;
-    const hash = await hashPassword(pw);
+    const tempPw = f.pw || generateTemporaryPassword();
+    const hash = await hashPassword(tempPw);
     // saved a moment later so the new person reaches the database first
     window.setTimeout(() => setCreds((p) => [{ employeeId: id, hash, mustChange: f.mustChange || !f.pw, updatedAt: nowStamp() }, ...p.filter((c) => c.employeeId !== id)]), 2500);
     logAudit('USER_CREATED', code, `${emp.name} (${ROLE_LABEL[emp.role] || emp.role}) added by ${currentUser.name}`);
     setF(blank); setOpen(false);
-    onDone?.(`${emp.name} added as ${code}. Login: ${email} / ${f.pw ? 'the password you set' : DEFAULT_PASSWORD}${f.mustChange || !f.pw ? ' (must change at first login)' : ''}.`);
+    onDone?.(`${emp.name} added as ${code}. Login: ${email} / Password: ${tempPw}${f.mustChange || !f.pw ? ' (must change at first login)' : ''}.`);
   };
 
   if (!open) return <div className="mb-3"><button className={btnPrimary} onClick={() => setOpen(true)}>+ Add user</button></div>;
@@ -84,7 +88,7 @@ export const AddUserPanel: React.FC<{ onDone?: (msg: string) => void }> = ({ onD
         {L('Role (what they can open) *', <select className={inputCls} value={f.role} onChange={(e) => set('role', e.target.value)}>{roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select>)}
         {L('Employment type', <select className={inputCls} value={f.type} onChange={(e) => set('type', e.target.value)}>{['Full-time', 'Contract', 'Probation', 'Intern'].map((t) => <option key={t}>{t}</option>)}</select>)}
         {L('Joining date', <input type="date" className={inputCls} value={f.joining} onChange={(e) => set('joining', e.target.value)} />)}
-        {L('Password', <input type="password" className={inputCls} value={f.pw} onChange={(e) => set('pw', e.target.value)} placeholder={`Leave empty for ${DEFAULT_PASSWORD}`} autoComplete="new-password" />)}
+        {L('Password', <input type="password" className={inputCls} value={f.pw} onChange={(e) => set('pw', e.target.value)} placeholder="Leave empty for auto-generated password" autoComplete="new-password" />)}
         {L('Confirm password', <input type="password" className={inputCls} value={f.pw2} onChange={(e) => set('pw2', e.target.value)} autoComplete="new-password" />)}
       </div>
       <label className="flex items-center gap-2 text-xs mt-3 text-slate-600 dark:text-slate-300"><input type="checkbox" checked={f.mustChange} onChange={(e) => set('mustChange', e.target.checked)} /> Ask them to set their own password at first login</label>

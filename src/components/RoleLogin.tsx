@@ -1,9 +1,9 @@
-﻿// Login page: choose role, then sign in. Each role has its own login and dashboard.
+// Login page: choose role, then sign in. Each role has its own login and dashboard.
 import React, { useState } from 'react';
 import { ClipboardList } from 'lucide-react'; // AGENCYOS_V2_PART20
 import { Crown, Building2, Users, Briefcase, Wallet, User, Eye, EyeOff, Mail, Lock, ShieldCheck, CalendarCheck, TrendingUp, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { PORTALS, LoginPortal, ROLE_LABEL, DEFAULT_PASSWORD, hashPassword, Credential, LoginEvent, ResetRequest, CRED_KEY, LOGIN_LOG_KEY, RESET_KEY } from '../lib/rbac';
+import { PORTALS, LoginPortal, ROLE_LABEL, hashPassword, Credential, LoginEvent, ResetRequest, CRED_KEY, LOGIN_LOG_KEY, RESET_KEY } from '../lib/rbac';
 import { readKey, writeKey, uid, nowStamp } from '../lib/sharedStore';
 
 const ICONS: Record<LoginPortal, React.ElementType> = { super_admin: Crown, admin: Building2, hr: Users, manager: Briefcase, project_manager: ClipboardList, finance: Wallet, employee: User };
@@ -44,8 +44,8 @@ export const RoleLogin: React.FC = () => {
     }
     setBusy(true);
     const cred = readKey<Credential[]>(CRED_KEY, []).find((c) => c.employeeId === emp.id);
-    const expected = cred?.hash ?? (await hashPassword(DEFAULT_PASSWORD));
-    const ok = (await hashPassword(pw)) === expected;
+    if (!cred?.hash) return setErr('Password not initialized. Please contact HR or Admin for your activation credentials.');
+    const ok = (await hashPassword(pw)) === cred.hash;
     setBusy(false);
     if (!ok) {
       log({ employeeId: emp.id, name: emp.name, role: emp.role, portal: p.id, ok: false, reason: 'wrong password' });

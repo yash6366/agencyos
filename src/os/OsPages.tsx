@@ -502,7 +502,21 @@ export const BackupsPage: React.FC = () => {
   const file = useRef<HTMLInputElement>(null);
   const keys = () => Object.keys(localStorage).filter((k) => k.startsWith('paa'));
   const download = () => { const data: Record<string, string | null> = {}; keys().forEach((k) => { data[k] = localStorage.getItem(k); }); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ system: 'Priority Ads Agency OS', at: new Date().toISOString(), data }, null, 1)], { type: 'application/json' })); a.download = `AgencyOS_Backup_${today()}.json`; a.click(); setLast(nowStamp()); logAudit('BACKUP_DOWNLOADED', `${keys().length} data sets`); toast('Backup downloaded'); };
-  const restore = async (f: File) => { try { const j = JSON.parse(await f.text()); if (!j?.data) throw new Error('Not an AgencyOS backup file'); if (!confirm(`Restore backup from ${j.at}? Current data on this computer will be replaced.`)) return; Object.entries(j.data).forEach(([k, v]) => { if (k.startsWith('paa') && typeof v === 'string') localStorage.setItem(k, v); }); logAudit('BACKUP_RESTORED', j.at); alert('Backup restored. The page will reload.'); location.reload(); } catch (e) { alert((e as Error).message); } };
+  const restore = async (f: File) => {
+    try {
+      const j = JSON.parse(await f.text());
+      if (!j?.data) throw new Error('Not an AgencyOS backup file');
+      if (!window.confirm(`Restore backup from ${j.at}? Current data will be replaced.`)) return;
+      Object.entries(j.data).forEach(([k, v]) => {
+        if (k.startsWith('paa') && typeof v === 'string') localStorage.setItem(k, v);
+      });
+      logAudit('BACKUP_RESTORED', j.at);
+      toast('Backup restored successfully. Reloading...', 'success');
+      setTimeout(() => location.reload(), 1000);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
   return (<>
     <div className="kpis"><Kpi name="Last Backup" value={last ? last.split(',')[0] : 'Never'} desc={last || 'Download one now'} icon="archive" /><Kpi name="Data Sets" value={String(keys().length)} desc="Saved in this browser" icon="folder" /><Kpi name="Off-site Copy" value="Manual" desc="Keep the file on Drive / pen drive" icon="shield" /><Kpi name="Restore Drill" value="Ready" desc="Test restore on another PC" icon="check" /></div>
     <div className="columns"><Panel title="Backup & restore">

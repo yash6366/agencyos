@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Icon } from '../os/icons';
+import { authFetch } from '../lib/auth';
 
 export interface GoogleCalendarStatus {
   connected: boolean;
@@ -37,22 +38,16 @@ export const GoogleCalendarModal: React.FC<{ isOpen: boolean; onClose: () => voi
   const fetchStatusAndLogs = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const [statusRes, logsRes] = await Promise.all([
-        fetch('/api/integrations/google/status', { headers }),
-        fetch('/api/integrations/google/logs', { headers }),
+        authFetch<GoogleCalendarStatus>('/integrations/google/status'),
+        authFetch<SyncLog[]>('/integrations/google/logs'),
       ]);
 
-      if (statusRes.ok) {
-        const data = await statusRes.json();
-        setStatus(data);
+      if (statusRes.ok && statusRes.data) {
+        setStatus(statusRes.data);
       }
-      if (logsRes.ok) {
-        const logData = await logsRes.json();
-        setLogs(logData || []);
+      if (logsRes.ok && logsRes.data) {
+        setLogs(logsRes.data || []);
       }
     } catch (e: any) {
       console.warn('Google Calendar status error:', e.message);
@@ -73,31 +68,25 @@ export const GoogleCalendarModal: React.FC<{ isOpen: boolean; onClose: () => voi
     setError(null);
     setLoading(true);
     try {
-      const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await authFetch<{ configured: boolean; url: string }>('/integrations/google/auth-url');
+      const data = res.data;
 
-      const res = await fetch('/api/integrations/google/auth-url', { headers });
-      const data = await res.json();
-
-      if (data.configured && data.url) {
+      if (data?.configured && data?.url) {
         // Redirect or open popup for real Google OAuth
         window.open(data.url, 'Google OAuth', 'width=600,height=700');
         // Poll status
         setTimeout(fetchStatusAndLogs, 3000);
       } else {
         // Simulate local callback for test environment
-        const cbRes = await fetch('/api/integrations/google/callback', {
+        const cbRes = await authFetch('/integrations/google/callback', {
           method: 'POST',
-          headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: 'test_code' }),
         });
         if (cbRes.ok) {
           setSuccessMsg('Google Calendar successfully connected!');
           await fetchStatusAndLogs();
         } else {
-          const err = await cbRes.json();
-          setError(err.error || 'Connection failed');
+          setError(cbRes.error || 'Connection failed');
         }
       }
     } catch (err: any) {
@@ -111,17 +100,12 @@ export const GoogleCalendarModal: React.FC<{ isOpen: boolean; onClose: () => voi
     if (!window.confirm('Are you sure you want to disconnect Google Calendar?')) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/integrations/google/disconnect', {
-        method: 'POST',
-        headers,
-      });
+      const res = await authFetch('/integrations/google/disconnect', { method: 'POST' });
       if (res.ok) {
         setStatus({ connected: false, email: null, lastSync: null, channel: 'primary' });
         setSuccessMsg('Google Calendar disconnected.');
+      } else {
+        setError(res.error || 'Failed to disconnect');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to disconnect');
@@ -135,22 +119,15 @@ export const GoogleCalendarModal: React.FC<{ isOpen: boolean; onClose: () => voi
     setError(null);
     setSuccessMsg(null);
     try {
-      const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/integrations/google/sync', {
+      const res = await authFetch<{ log?: { message: string }; eventsSynced: number }>('/integrations/google/sync', {
         method: 'POST',
-        headers,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setSuccessMsg(data.log?.message || `Synchronized ${data.eventsSynced} events successfully.`);
+      if (res.ok && res.data) {
+        setSuccessMsg(res.data.log?.message || `Synchronized ${res.data.eventsSynced} events successfully.`);
         await fetchStatusAndLogs();
       } else {
-        const err = await res.json();
-        setError(err.error || 'Sync failed');
+        setError(res.error || 'Sync failed');
       }
     } catch (err: any) {
       setError(err.message || 'Sync error');

@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { readKey, writeKey, uid, nowStamp } from '../lib/sharedStore';
-import { DEFAULT_PASSWORD, hashPassword, Credential, LoginEvent, ResetRequest, CRED_KEY, LOGIN_LOG_KEY, RESET_KEY } from '../lib/rbac';
+import { hashPassword, Credential, LoginEvent, ResetRequest, CRED_KEY, LOGIN_LOG_KEY, RESET_KEY } from '../lib/rbac';
 import { Icon } from './icons';
 import { roleLabel } from './osConfig';
 import { dbEnabled, dbLogin } from '../lib/dbSync';
@@ -48,8 +48,8 @@ export const OsLogin: React.FC = () => {
     if (emp.status === 'inactive') { log({ employeeId: emp.id, name: emp.name, role: emp.role, portal: 'os', ok: false, reason: 'inactive' }); return setErr('This account is suspended. Contact the Founder or HR.'); }
     setBusy(true);
     const cred = readKey<Credential[]>(CRED_KEY, []).find((c) => c.employeeId === emp.id);
-    const expected = cred?.hash ?? (await hashPassword(DEFAULT_PASSWORD));
-    const ok = (await hashPassword(pw)) === expected;
+    if (!cred?.hash) return setErr('Password not initialized. Please request a password reset or sign in with your enterprise credentials.');
+    const ok = (await hashPassword(pw)) === cred.hash;
     setBusy(false);
     if (!ok) {
       log({ employeeId: emp.id, name: emp.name, role: emp.role, portal: 'os', ok: false, reason: 'wrong password' });

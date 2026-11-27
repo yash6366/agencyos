@@ -1,4 +1,4 @@
-﻿// AGENCYOS_V5_P26B: one login for every role (created once, password Welcome@123, must change at first login)
+// AGENCYOS_V5_P26B: one login for every role (created once for demo role exploration)
 import { INITIAL_EMPLOYEES } from '../data/initialData';
 
 const FLAG = 'paa_x_role_accounts_v1';

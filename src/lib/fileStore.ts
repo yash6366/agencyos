@@ -1,4 +1,4 @@
-﻿// Stores uploaded files (documents, signed contracts, photos) in the browser's
+// Stores uploaded files (documents, signed contracts, photos) in the browser's
 // IndexedDB. localStorage is too small (about 5 MB) for files.
 import { StoredFile } from './hrTypes';
 
@@ -38,9 +38,11 @@ export async function getFile(fileId: string): Promise<Blob | undefined> {
   });
 }
 
+import { toast } from '../os/OsUi';
+
 export async function openStoredFile(f: StoredFile) {
   const blob = await getFile(f.fileId);
-  if (!blob) { alert('File not found in this browser. Files are stored on the computer where they were uploaded.'); return; }
+  if (!blob) { toast('File not found in this browser storage.', 'error'); return; }
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 60000);

@@ -5,6 +5,8 @@
 import { homeTab } from '../lib/rbac'; // AGENCYOS_V2_PART4
 import { osGuard } from '../os/osP25';
 import { navigate as routerNavigate } from '../lib/router';
+import { leadsApi } from '../lib/api/leadsApi';
+import { invoicesApi } from '../lib/api/invoicesApi';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import {
   UserRole,
@@ -654,8 +656,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const reviewLeave = (leaveId: string, status: LeaveStatus, remarks?: string) => {
     const targetReq = leaveRequests.find(l => l.id === leaveId);
     if (!targetReq) return;
-    if (targetReq.status !== 'pending') { alert('This leave request has already been reviewed.'); return; }
-    if (targetReq.employeeId === currentUser.id && currentRole !== 'super_admin') { alert('You cannot approve your own leave.'); return; }
+    if (targetReq.status !== 'pending') {
+      pushNotification('Leave Action Notice', 'This leave request has already been reviewed.', 'system', 'leave');
+      return;
+    }
+    if (targetReq.employeeId === currentUser.id && currentRole !== 'super_admin') {
+      pushNotification('Leave Action Forbidden', 'You cannot approve your own leave.', 'system', 'leave');
+      return;
+    }
 
     let paidDays = 0;
     let unpaidDays = 0;
@@ -1009,10 +1017,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addAuditLog('LEAD_STATUS_UPDATE', leadId, `Status updated to ${status}`);
   };
 
-  // Convert Lead to Client
+  // Convert Lead to Client (via Authoritative REST API with optimistic rollback fallback)
   const convertLeadToClient = (leadId: string) => {
     const targetLead = leads.find(l => l.id === leadId);
     if (!targetLead) return;
+
+    // Trigger authoritative server-side lead conversion
+    leadsApi.convertLead(leadId).then((serverRes) => {
+      if (serverRes?.data?.client) {
+        setClients(prev => {
+          const clientData = serverRes.data!.client as Client;
+          const exists = prev.some(c => c.id === clientData.id);
+          return exists ? prev.map(c => c.id === clientData.id ? clientData : c) : [clientData, ...prev];
+        });
+      }
+      if (serverRes?.data?.project) {
+        setProjects(prev => {
+          const projectData = serverRes.data!.project as Project;
+          const exists = prev.some(p => p.id === projectData.id);
+          return exists ? prev.map(p => p.id === projectData.id ? projectData : p) : [projectData, ...prev];
+        });
+      }
+    }).catch((err) => {
+      console.warn('Backend lead conversion endpoint fallback:', err.message);
+    });
 
     const clientCode = `PAA-CL-${Math.floor(50 + Math.random() * 950)}`;
     const newClient: Client = {
@@ -1185,7 +1213,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateTaskStatus = (taskId: string, status: Task['status']) => {
     const t = tasks.find(x => x.id === taskId);
-    if (t && currentRole === 'employee' && t.assignedEmployeeId !== currentUser.id) { alert('You can only update tasks assigned to you.'); return; }
+    if (t && currentRole === 'employee' && t.assignedEmployeeId !== currentUser.id) {
+      pushNotification('Task Update Restricted', 'You can only update tasks assigned to you.', 'task', 'my_tasks');
+      return;
+    }
     setTasks(prev => prev.map(x => x.id === taskId ? { ...x, status } : x));
     addAuditLog('TASK_STATUS_CHANGED', t?.taskCode || taskId, `Task status set to ${status}`);
   };
@@ -1275,12 +1306,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addInvoice = (invoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => {
     const num = `PAA-INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+    const tempId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const newInv: Invoice = {
       ...invoice,
-      id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: tempId,
       invoiceNumber: num
     };
     setInvoices(prev => [newInv, ...prev]);
+
+    // Authoritative backend invoice creation
+    invoicesApi.createInvoice(invoice).then((serverRes) => {
+      if (serverRes?.data && (serverRes.data as any).id) {
+        const invData = serverRes.data as Invoice;
+        setInvoices(prev => prev.map(inv => inv.id === tempId ? { ...invData, id: invData.id } : inv));
+      }
+    }).catch((err) => {
+      console.warn('Backend create invoice fallback:', err.message);
+    });
+
     addAuditLog('INVOICE_CREATED', num, `Invoice ${num} generated for ₹${invoice.totalAmount}`);
     pushNotification('Invoice Issued', `Invoice ${num} issued for ₹${invoice.totalAmount}.`, 'invoice', 'invoices');
     return newInv;

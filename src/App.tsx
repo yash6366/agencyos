@@ -3,7 +3,7 @@
 // AGENCYOS_DB_DONE
 // AGENCYOS_V5_P26_DONE
 // AGENCYOS_V4_P25_DONE
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { RoleLogin } from './components/RoleLogin'; // AGENCYOS_V2_PART4
 import './os/os.css'; // AGENCYOS_V3_OS
 import { OsLogin } from './os/OsLogin';
@@ -13,8 +13,6 @@ import { renderOsPage } from './os/OsRouter';
 import { HubTabs } from './os/osHubs';
 import { AccessAdmin, ForcePasswordChange } from './components/AccessAdmin';
 import { FinanceDashboard } from './components/FinanceDashboard';
-import { DocumentCenter } from './components/DocumentCenter'; // AGENCYOS_V2_PART13
-import { FinanceBook } from './components/FinanceBook';
 import { ClientReimbursementModule } from './components/ClientReimbursementModule'; // AGENCYOS_V2_PART11
 import { canAccess, homeTab, ROLE_LABEL, setFieldAccess } from './lib/rbac';
 import { useShared } from './lib/sharedStore';
@@ -26,11 +24,8 @@ import { FieldForceModule } from './components/FieldForceModule';
 import { CrmModule } from './components/CrmModule';
 import { ProjectsTasksModule } from './components/ProjectsTasksModule';
 import { ReimbursementsPayrollModule } from './components/ReimbursementsPayrollModule';
-import { SalesBillingModule } from './components/SalesBillingModule';
 import { EmployeesModule } from './components/EmployeesModule';
 import { LeaveManagementModule } from './components/LeaveManagementModule';
-import { HrPayrollModule } from './components/HrPayrollModule'; // AGENCYOS_V2_PART2
-import { DealsModule, DealsTab } from './components/DealsModule'; // AGENCYOS_V2_PART3
 import { FieldGpsModule } from './components/FieldGpsModule';
 import { AgencyWatchers } from './components/AgencyWatchers';
 import { AuditSettingsModule } from './components/AuditSettingsModule';
@@ -40,6 +35,19 @@ import { useRouter } from './lib/router';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { MyProfileModal } from './components/MyProfileModal';
 import { GoogleCalendarModal } from './components/GoogleCalendarModal';
+
+const DealsModule = lazy(() => import('./components/DealsModule').then(m => ({ default: m.DealsModule })));
+const HrPayrollModule = lazy(() => import('./components/HrPayrollModule').then(m => ({ default: m.HrPayrollModule })));
+const DocumentCenter = lazy(() => import('./components/DocumentCenter').then(m => ({ default: m.DocumentCenter })));
+const FinanceBook = lazy(() => import('./components/FinanceBook').then(m => ({ default: m.FinanceBook })));
+const SalesBillingModule = lazy(() => import('./components/SalesBillingModule').then(m => ({ default: m.SalesBillingModule })));
+
+const ModuleFallback = () => (
+  <div className="flex items-center justify-center p-12 text-slate-400 text-sm">
+    <div className="w-4 h-4 mr-2 border-2 border-slate-300 border-t-[#0B1738] rounded-full animate-spin" />
+    Loading enterprise module...
+  </div>
+);
 import {
   LayoutDashboard,
   Users,
@@ -224,17 +232,27 @@ function MainApp() {
           {allowed && activeTab === 'analytics' && <AnalyticsView />}
           {allowed && activeTab === 'attendance' && <AttendanceModule onOpenRegularizeModal={() => openAddModal('regularization')} />}
           {allowed && activeTab === 'leave' && <LeaveManagementModule />}
-          {allowed && activeTab === 'hr_onboarding' && <HrPayrollModule key="hr_onboarding" initialTab="onboarding" />}
-          {allowed && activeTab === 'hr_payroll' && <HrPayrollModule key="hr_payroll" initialTab="payroll" />}
           <AgencyWatchers />
           <ForcePasswordChange />
           {allowed && activeTab === 'finance_desk' && <FinanceDashboard onOpen={setActiveTab} />}
           {allowed && activeTab === 'access_admin' && <AccessAdmin />}
-          {allowed && activeTab === 'document_center' && <DocumentCenter />}
-          {allowed && activeTab === 'business_finance' && <FinanceBook />}
           {allowed && activeTab === 'client_reimbursements' && <ClientReimbursementModule />}
-          {allowed && activeTab === 'deals_quotations' && <div className="hub-tabs"><button className="hub-tab active" onClick={() => openAddModal('quotation')}>+ Create Quotation</button></div>}
-          {allowed && activeTab.startsWith('deals_') && <DealsModule key={activeTab} initialTab={activeTab.slice(6) as DealsTab} />}
+          <Suspense fallback={<ModuleFallback />}>
+            {allowed && activeTab === 'hr_onboarding' && <HrPayrollModule key="hr_onboarding" initialTab="onboarding" />}
+            {allowed && activeTab === 'hr_payroll' && <HrPayrollModule key="hr_payroll" initialTab="payroll" />}
+            {allowed && activeTab === 'document_center' && <DocumentCenter />}
+            {allowed && activeTab === 'business_finance' && <FinanceBook />}
+            {allowed && activeTab.startsWith('deals_') && <DealsModule key={activeTab} initialTab={activeTab.slice(6) as any} />}
+            {allowed && (activeTab === 'billing' || activeTab === 'invoices') && (
+              <SalesBillingModule
+                only="invoices"
+                onOpenCreateQuotationModal={() => openAddModal('quotation')}
+                onOpenCreateInvoiceModal={() => openAddModal('invoice')}
+                onOpenRecordPaymentModal={(invId) => openAddModal('payment', { invoiceId: invId })}
+                onOpenAddExpenseModal={() => openAddModal('expense')}
+              />
+            )}
+          </Suspense>
           {allowed && activeTab === 'field_gps' && <FieldGpsModule />}
           {allowed && activeTab === 'field_force' && (
             <FieldForceModule
@@ -283,15 +301,6 @@ function MainApp() {
           {allowed && activeTab === 'reimbursements' && (
             <ReimbursementsPayrollModule
               onOpenAddReimbursementModal={() => openAddModal('reimbursement')}
-            />
-          )}
-          {allowed && activeTab === 'billing' && (
-            <SalesBillingModule
-              only="invoices"
-              onOpenCreateQuotationModal={() => openAddModal('quotation')}
-              onOpenCreateInvoiceModal={() => openAddModal('invoice')}
-              onOpenRecordPaymentModal={(invId) => openAddModal('payment', { invoiceId: invId })}
-              onOpenAddExpenseModal={() => openAddModal('expense')}
             />
           )}
           {allowed && activeTab === 'employees' && (

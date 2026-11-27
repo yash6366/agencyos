@@ -19,6 +19,7 @@ import { inr, round2 } from '../lib/money';
 import { localDate, fmtDate, addDaysIso, daysBetween } from '../lib/dates';
 import { printReceipt, printAgreement, printSow } from '../lib/print2';
 import { inputCls, btnPrimary, btnGhost, btnGood, btnBad, card, th, td, Badge, Field, Modal, Tabs, Empty } from './ui2';
+import { toast } from '../os/OsUi';
 
 export type DealsTab = 'quotations' | 'agreements' | 'installments' | 'sow' | 'templates' | 'settings';
 
@@ -203,8 +204,8 @@ const QuoteEdit: React.FC<{ q: Quotation }> = ({ q }) => {
   const total = round2(taxable + taxAmount);
   const setItem = (k: number, patch: Partial<QuotationItem>) => setF((p) => ({ ...p, items: p.items.map((it, j) => (j === k ? { ...it, ...patch } : it)) }));
   const save = () => {
-    if (!f.title.trim()) return alert('Title is required');
-    if (!f.items.length || f.items.some((i) => !i.description.trim())) return alert('Every item needs a description');
+    if (!f.title.trim()) { toast('Title is required', 'error'); return; }
+    if (!f.items.length || f.items.some((i) => !i.description.trim())) { toast('Every item needs a description', 'error'); return; }
     const x = getQx(q);
     const rev = { rev: x.revisions.length + 1, at: nowStamp(), by: currentUser.name, total: q.total, note: f.note || 'Edited', snapshot: JSON.stringify(q) };
     const items = f.items.map((i) => ({ ...i, total: round2(i.quantity * i.unitPrice) }));
@@ -252,7 +253,7 @@ const QuoteDetails: React.FC<{ q: Quotation }> = ({ q }) => {
   const preview = buildSchedule(q.total, today, x.advancePercent, x.installmentCount, x.frequency);
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
-    try { const s: StoredFile[] = []; for (const f of Array.from(files)) s.push(await saveFile(f)); setX((p) => ({ ...p, files: [...p.files, ...s] })); } catch (e) { alert((e as Error).message); }
+    try { const s: StoredFile[] = []; for (const f of Array.from(files)) s.push(await saveFile(f)); setX((p) => ({ ...p, files: [...p.files, ...s] })); } catch (e) { toast((e as Error).message, 'error'); }
   };
   return (
     <div className="space-y-3">
@@ -299,7 +300,7 @@ const AgreementsTab = () => {
               <td className={td}>{inr(x.value)}<div className="text-[10px] text-slate-400">{sched.length} instalment(s)</div></td>
               <td className={td}><Badge v={a.status} /></td>
               <td className={td}>{x.signedFile ? <button className="text-blue-600 underline cursor-pointer" onClick={() => openStoredFile(x.signedFile!)}>Signed copy</button> : <span className="text-slate-400">Not uploaded</span>}
-                {canManage && <label className="block text-[11px] text-blue-600 cursor-pointer font-semibold">Upload<input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; try { const s = await saveFile(f); saveAx({ ...x, signedFile: s, signedOn: today }); logAudit('AGREEMENT_SIGNED_UPLOAD', a.agreementNumber); } catch (er) { alert((er as Error).message); } }} /></label>}</td>
+                {canManage && <label className="block text-[11px] text-blue-600 cursor-pointer font-semibold">Upload<input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; try { const s = await saveFile(f); saveAx({ ...x, signedFile: s, signedOn: today }); logAudit('AGREEMENT_SIGNED_UPLOAD', a.agreementNumber); } catch (er) { toast((er as Error).message, 'error'); } }} /></label>}</td>
               <td className={td}>{q ? <div>Quote {q.quotationNumber}</div> : null}{p ? <div>Project {p.projectCode}</div> : null}</td>
               <td className={td}><div className="flex flex-wrap gap-1">
                 {canManage && <button className={btnGhost} onClick={() => setModal({ kind: 'a_edit', id: a.id })}>Edit</button>}
@@ -321,7 +322,7 @@ const AgreementEdit: React.FC<{ a: Agreement }> = ({ a }) => {
   const x0 = getAx(a);
   const [f, setF] = useState({ title: a.title, startDate: a.startDate, endDate: a.endDate, terms: a.terms, value: x0.value, autoRenew: x0.autoRenew, clauses: x0.clauses.map((c) => ({ ...c })), note: '' });
   const save = () => {
-    if (f.endDate && f.startDate && f.endDate < f.startDate) return alert('End date cannot be before start date');
+    if (f.endDate && f.startDate && f.endDate < f.startDate) { toast('End date cannot be before start date', 'error'); return; }
     const snap = { version: x0.versions.length + 1, at: nowStamp(), by: currentUser.name, note: f.note || 'Edited', title: a.title, startDate: a.startDate, endDate: a.endDate, terms: a.terms, clauses: x0.clauses, value: x0.value };
     saveAx({ ...x0, value: f.value, autoRenew: f.autoRenew, clauses: f.clauses.filter((c) => c.title.trim() || c.text.trim()), versions: [snap, ...x0.versions], remindersSent: f.endDate !== a.endDate ? [] : x0.remindersSent });
     updateAgreement(a.id, { title: f.title, startDate: f.startDate, endDate: f.endDate, terms: f.terms, status: a.status === 'expired' && f.endDate >= today ? 'active' : a.status });
@@ -461,9 +462,9 @@ const PaymentForm = () => {
   const alloc = Object.keys(manual).length ? manual : auto;
   const allocated = round2(Object.values(alloc).reduce((s, v) => s + (v || 0), 0));
   const save = () => {
-    if (!f.clientId || f.amount <= 0) return alert('Choose client and amount');
-    if (allocated > f.amount + 0.01) return alert('Allocated more than the amount received');
-    for (const r of open) if ((alloc[r.i.id] || 0) > r.due + 0.01) return alert(`${r.i.label}: allocation is more than the balance`);
+    if (!f.clientId || f.amount <= 0) { toast('Choose client and amount', 'error'); return; }
+    if (allocated > f.amount + 0.01) { toast('Allocated more than the amount received', 'error'); return; }
+    for (const r of open) if ((alloc[r.i.id] || 0) > r.due + 0.01) { toast(`${r.i.label}: allocation is more than the balance`, 'error'); return; }
     const allocations = Object.entries(alloc).filter(([, v]) => v > 0).map(([installmentId, amount]) => ({ installmentId, amount }));
     const rec: InstallmentPayment = { id: uid('ipay'), receiptNo: `PAA-RCPT-${String(Date.now()).slice(-6)}`, clientId: f.clientId, date: f.date, amount: f.amount, method: f.method, reference: f.reference, notes: f.notes, allocations, recordedBy: currentUser.name };
     setPays((p) => [rec, ...p]);
@@ -546,7 +547,7 @@ const SowEditor: React.FC<{ s?: ScopeOfWork }> = ({ s }) => {
   const [meta, setMeta] = useState({ title: s?.title || '', clientId: s?.clientId || '', projectId: s?.projectId || '', agreementId: s?.agreementId || '', note: '' });
   const [c, setC] = useState<SowContent>(s ? JSON.parse(JSON.stringify(s.content)) : emptySow());
   const save = () => {
-    if (!meta.title.trim() || !meta.clientId) return alert('Title and client are required');
+    if (!meta.title.trim() || !meta.clientId) { toast('Title and client are required', 'error'); return; }
     const c2 = { ...c, deliverables: c.deliverables.map((d) => d.trim()).filter(Boolean) };
     if (s) {
       const changed = JSON.stringify(s.content) !== JSON.stringify(c2);
@@ -614,7 +615,7 @@ const TemplateEditor: React.FC<{ t?: ProjectTemplate }> = ({ t }) => {
   const { setTpls, close } = useD();
   const [f, setF] = useState({ name: t?.name || '', description: t?.description || '', tasks: (t?.tasks || []).map((x) => `${x.title} | ${x.days} | ${x.hours}`).join('\n'), deliverables: (t?.deliverables || []).join('\n') });
   const save = () => {
-    if (!f.name.trim()) return alert('Name is required');
+    if (!f.name.trim()) { toast('Name is required', 'error'); return; }
     const tasks = f.tasks.split('\n').map((l) => l.split('|').map((s) => s.trim())).filter((p) => p[0]).map((p) => ({ title: p[0], days: Number(p[1]) || 7, hours: Number(p[2]) || 4 }));
     const rec: ProjectTemplate = { id: t?.id || uid('tpl'), name: f.name, description: f.description, tasks, deliverables: f.deliverables.split('\n').map((s) => s.trim()).filter(Boolean) };
     setTpls((p) => [rec, ...p.filter((x) => x.id !== rec.id)]);
@@ -635,7 +636,7 @@ const UseTemplate: React.FC<{ t: ProjectTemplate }> = ({ t }) => {
   const { clients, employees, currentUser, addProject, addTask, today, setSows, setMsg, close } = useD();
   const [f, setF] = useState({ name: t.name, clientId: '', pmId: currentUser.id, assigneeId: currentUser.id, start: today, budget: 0 });
   const go = () => {
-    if (!f.name.trim() || !f.clientId) return alert('Project name and client are required');
+    if (!f.name.trim() || !f.clientId) { toast('Project name and client are required', 'error'); return; }
     const maxDays = Math.max(7, ...t.tasks.map((x) => x.days));
     const prj = addProject({ name: f.name, clientId: f.clientId, projectManagerId: f.pmId, assignedEmployeeIds: [f.assigneeId], startDate: f.start, endDate: addDaysIso(f.start, maxDays), budget: f.budget, status: 'planning', priority: 'medium', description: `From template: ${t.name}. ${t.description}` });
     for (const x of t.tasks) addTask({ projectId: prj.id, clientId: f.clientId, title: x.title, description: `Template task (${t.name})`, assignedEmployeeId: f.assigneeId, managerId: f.pmId, projectManagerId: f.pmId, priority: 'medium', status: 'todo', startDate: f.start, dueDate: addDaysIso(f.start, x.days), estimatedHours: x.hours, actualHours: 0 });

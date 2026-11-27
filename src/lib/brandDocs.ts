@@ -170,12 +170,14 @@ export function letterPage(innerHtml: string, ref: string, date: string) {
 <div class="body">${innerHtml}</div><div class="spacer"></div>${footLine()}<div class="band">YOUR SUCCESS IS OUR PRIORITY</div></div>`;
 }
 
+import { toast } from '../os/OsUi';
+
 export const brandDocHtml = (title: string, page: string, landscape: boolean) =>
   `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:${landscape ? '0' : '12mm 0 12mm'}}html,body{margin:0;padding:0;background:#fff}${CSS}</style></head><body>${page}</body></html>`;
 
 export function openBrandDoc(title: string, page: string, landscape: boolean) {
   const w = window.open('', '_blank');
-  if (!w) { alert('Please allow pop-ups for this site to print or save PDFs.'); return; }
+  if (!w) { toast('Please allow pop-ups for this site to print or save PDFs.', 'error'); return; }
   w.document.write(brandDocHtml(title, page, landscape).replace('</body>', `<script>window.onload=function(){var p=document.querySelector('.pb'),H=${landscape ? 790 : 1040};if(p&&p.offsetHeight>H&&p.offsetHeight<H*1.25){p.style.zoom=String(H/p.offsetHeight)}setTimeout(function(){window.print()},400)}<\/script></body>`));
   w.document.close();
 }

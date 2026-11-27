@@ -90,8 +90,42 @@ export const can = {
   paySalaries: (r: string) => r === SA || r === AD || r === FN,
 };
 
-// ---- passwords (browser-only for Phase 1; the backend will use bcrypt) ----
-export const DEFAULT_PASSWORD = 'Welcome@123';
+// ---- passwords (browser-side hashing and credential utilities) ----
+export function generateTemporaryPassword(): string {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnopqrstuvwxyz';
+  const digits = '23456789';
+  const symbols = '!@#$%^&*';
+  const getRandom = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
+  
+  // Ensure at least 1 of each required category
+  const parts = [
+    getRandom(upper),
+    getRandom(lower),
+    getRandom(digits),
+    getRandom(symbols),
+  ];
+  const all = upper + lower + digits + symbols;
+  for (let i = 0; i < 8; i++) {
+    parts.push(getRandom(all));
+  }
+  // Shuffle securely
+  for (let i = parts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [parts[i], parts[j]] = [parts[j], parts[i]];
+  }
+  return parts.join('');
+}
+
+export function validatePasswordComplexity(pw: string): { valid: boolean; reason?: string } {
+  if (!pw || pw.length < 8) return { valid: false, reason: 'Password must be at least 8 characters long.' };
+  if (!/[A-Z]/.test(pw)) return { valid: false, reason: 'Password must contain at least one uppercase letter.' };
+  if (!/[a-z]/.test(pw)) return { valid: false, reason: 'Password must contain at least one lowercase letter.' };
+  if (!/\d/.test(pw)) return { valid: false, reason: 'Password must contain at least one number.' };
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(pw)) return { valid: false, reason: 'Password must contain at least one special character (!@#$%^&* etc.).' };
+  return { valid: true };
+}
+
 export async function hashPassword(pw: string) {
   const data = new TextEncoder().encode('paa-salt:' + pw);
   const buf = await crypto.subtle.digest('SHA-256', data);

@@ -82,6 +82,8 @@ const SettingsForm: React.FC<{ settings: Settings; onClose: () => void; onSave: 
 };
 
 
+import { toast } from '../os/OsUi';
+
 export const FinanceBook: React.FC = () => {
   const { payments, invoices, clients, expenses, reimbursements, employees, company, currentUser, currentRole, logAudit, setActiveTab } = useApp();
   const [manual, setManual] = useShared<ManualEntry[]>('paa_x_cashbook', []);
@@ -202,7 +204,7 @@ export const FinanceBook: React.FC = () => {
     return { pending: sum((s) => ['submitted', 'under_review', 'draft'].includes(s)), approved: sum((s) => s === 'approved'), paid: sum((s) => s === 'paid'), rejected: sum((s) => s === 'rejected') };
   }, [reimbursements]);
   const recentClaims = [...reimbursements].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-  const go = (tab: string) => { if (canAccess(currentRole, tab)) setActiveTab(tab); else alert('You do not have access to that screen.'); };
+  const go = (tab: string) => { if (canAccess(currentRole, tab)) setActiveTab(tab); else toast('You do not have access to that screen.', 'error'); };
   const Switch: React.FC<{ on: boolean; onClick: () => void; label: string }> = ({ on, onClick, label }) => (
     <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 select-none">
       {label}

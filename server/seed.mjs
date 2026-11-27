@@ -15,7 +15,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, T } from './migrate.mjs';
 
-const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
+const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(8).toString('hex') + '!Aa1';
 const ADMIN_EMAIL = process.env.INITIAL_ADMIN_EMAIL || 'rajesh.sharma@priorityadsagency.com';
 
 const DEPARTMENTS = [
@@ -360,6 +360,89 @@ export async function seedDatabase(targetPool = pool) {
          ON CONFLICT (id) DO NOTHING`,
         [balanceData.id, row.id, balanceData]
       );
+    }
+
+    // 8. Seed Initial Demonstration Clients, Leads & Projects only if explicitly requested (SEED_DEMO_DATA=true) and tables are empty
+    const shouldSeedDemo = process.env.SEED_DEMO_DATA === 'true' || process.env.NODE_ENV === 'development';
+    const clientCheck = await client.query('SELECT count(*)::int n FROM public.clients');
+    if (shouldSeedDemo && clientCheck.rows[0].n === 0) {
+      const demoClients = [
+        {
+          id: 'cli-demo-1',
+          clientCode: 'CLI-2026-001',
+          companyName: 'Apex Health Systems',
+          industry: 'Healthcare & Lifesciences',
+          phone: '+91 98450 11223',
+          email: 'contact@apexhealth.in',
+          status: 'active',
+          address: 'Richmond Circle, Bengaluru, Karnataka 560025',
+          stateCode: '29',
+          gstNumber: '29AABCA1234D1Z5',
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'cli-demo-2',
+          clientCode: 'CLI-2026-002',
+          companyName: 'Zenith Retail Tech',
+          industry: 'E-commerce & Retail',
+          phone: '+91 98860 33445',
+          email: 'growth@zenithretail.com',
+          status: 'active',
+          address: 'Bandra Kurla Complex, Mumbai, Maharashtra 400051',
+          stateCode: '27',
+          gstNumber: '27AABCA5678D1Z2',
+          createdAt: new Date().toISOString()
+        }
+      ];
+
+      for (let i = 0; i < demoClients.length; i++) {
+        const c = demoClients[i];
+        await client.query(
+          `INSERT INTO public.clients (id, client_code, company_name, phone, email, status, data, pos, updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'seed')
+           ON CONFLICT (id) DO NOTHING`,
+          [c.id, c.clientCode, c.companyName, c.phone, c.email, c.status, c, i]
+        );
+      }
+
+      const demoLeads = [
+        {
+          id: 'lead-demo-1',
+          leadCode: 'LEAD-2026-001',
+          company: 'Nexus Mobility Innovations',
+          contactPerson: 'Aditya Mehta',
+          phone: '+91 97410 55667',
+          email: 'aditya@nexusmobility.in',
+          source: 'LinkedIn Enterprise Inbound',
+          status: 'qualified',
+          estimatedValue: 450000,
+          assignedEmployeeId: 'emp-5',
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'lead-demo-2',
+          leadCode: 'LEAD-2026-002',
+          company: 'Kavita Organics Pvt Ltd',
+          contactPerson: 'Kavita Rao',
+          phone: '+91 99000 88990',
+          email: 'kavita@kavitaorganics.com',
+          source: 'Direct Field Visit',
+          status: 'proposal_sent',
+          estimatedValue: 280000,
+          assignedEmployeeId: 'emp-5',
+          createdAt: new Date().toISOString()
+        }
+      ];
+
+      for (let i = 0; i < demoLeads.length; i++) {
+        const l = demoLeads[i];
+        await client.query(
+          `INSERT INTO public.leads (id, lead_code, company, phone, email, source, status, estimated_value, assigned_employee_id, data, pos, updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'seed')
+           ON CONFLICT (id) DO NOTHING`,
+          [l.id, l.leadCode, l.company, l.phone, l.email, l.source, l.status, l.estimatedValue, l.assignedEmployeeId, l, i]
+        );
+      }
     }
 
     await client.query('COMMIT');

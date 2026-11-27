@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { authFetch } from '../lib/auth';
 import { useApp } from '../context/AppContext';
 import { useRouter } from '../lib/router';
 import { Icon } from '../os/icons';
@@ -186,17 +187,12 @@ export const GlobalSearchModal: React.FC<{ isOpen: boolean; onClose: () => void 
 
     const timer = setTimeout(async () => {
       try {
-        const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const url = `/search?q=${encodeURIComponent(q)}&category=${encodeURIComponent(activeCategory)}&limit=40`;
+        const res = await authFetch(url);
 
-        const url = `/api/search?q=${encodeURIComponent(q)}&category=${encodeURIComponent(activeCategory)}&limit=40`;
-        const res = await fetch(url, { headers });
-
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data.results || []);
-          setCategories(data.categories || {});
+        if (res.ok && res.data) {
+          setResults(res.data.results || []);
+          setCategories(res.data.categories || {});
           setSelectedIndex(0);
         } else {
           // Fall back to client data

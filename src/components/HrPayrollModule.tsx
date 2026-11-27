@@ -18,6 +18,7 @@ import { printPayslip, printLetter } from '../lib/print';
 import { TEMPLATES as DOC_TEMPLATES } from '../lib/docTemplates';
 import { docHtml } from './DocumentCenter';
 import { letterPage, openBrandDoc } from '../lib/brandDocs';
+import { toast } from '../os/OsUi';
 
 // ---------- small UI helpers (Tailwind, matches the rest of the app) ----------
 const inputCls = 'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0B1738]';
@@ -180,7 +181,7 @@ export const HrPayrollModule: React.FC<{ initialTab?: Tab }> = ({ initialTab = '
   const completeOnboarding = (empId: string) => {
     const rec = getOnboarding(empId);
     const missing = rec.items.filter((i) => i.mandatory && !i.done).map((i) => i.title);
-    if (missing.length) { alert('Complete these items first:\n- ' + missing.join('\n- ')); return; }
+    if (missing.length) { toast('Complete these items first: ' + missing.join(', '), 'error'); return; }
     setOnboarding((p) => ({ ...p, [empId]: { ...rec, status: 'completed', completedAt: localDate() } }));
     updateEmployee(empId, { status: 'active' });
     logAudit('ONBOARDING_COMPLETED', empId, `Onboarding completed for ${emp(empId)?.name}`);
@@ -214,7 +215,7 @@ export const HrPayrollModule: React.FC<{ initialTab?: Tab }> = ({ initialTab = '
 
   const finaliseMonth = (y: number, m: number) => {
     const end = `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth(y, m)).padStart(2, '0')}`;
-    if (end >= localDate()) { alert('A month can only be finalised after it has ended.'); return; }
+    if (end >= localDate()) { toast('A month can only be finalised after it has ended.', 'error'); return; }
     if (!confirm(`Finalise and lock attendance for ${MONTH_NAMES[m - 1]} ${y}? Payroll will use these numbers.`)) return;
     const rows = activeEmployees.map((e) => ({ ...buildSummary(e.id, y, m), status: 'finalised' as const, finalisedAt: localDate(), finalisedBy: currentUser.name }));
     setMonths((prev) => [...prev.filter((x) => !(x.year === y && x.month === m)), ...rows]);
@@ -252,9 +253,9 @@ export const HrPayrollModule: React.FC<{ initialTab?: Tab }> = ({ initialTab = '
   };
   const calculateRun = (y: number, m: number) => {
     const missing = activeEmployees.filter((e) => !months.some((x) => x.employeeId === e.id && x.year === y && x.month === m && x.status === 'finalised'));
-    if (missing.length) { alert(`Finalise attendance for ${MONTH_NAMES[m - 1]} ${y} first. Not finalised: ${missing.map((e) => e.name).join(', ')}`); return; }
+    if (missing.length) { toast(`Finalise attendance for ${MONTH_NAMES[m - 1]} ${y} first. Not finalised: ${missing.map((e) => e.name).join(', ')}`, 'error'); return; }
     const existing = runFor(y, m);
-    if (existing && ['partially_paid', 'paid'].includes(existing.status)) { alert('Salaries for this month are already paid. Add corrections to next month as adjustments.'); return; }
+    if (existing && ['partially_paid', 'paid'].includes(existing.status)) { toast('Salaries for this month are already paid. Add corrections to next month as adjustments.', 'error'); return; }
     const adjustments = existing?.adjustments || [];
     const monthEnd = `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth(y, m)).padStart(2, '0')}`;
     const slips: PayrollSlip[] = activeEmployees.map((e, i) => {
@@ -279,7 +280,7 @@ export const HrPayrollModule: React.FC<{ initialTab?: Tab }> = ({ initialTab = '
   };
   const updateRun = (id: string, f: (r: PayrollRun) => PayrollRun) => setRuns((prev) => prev.map((r) => (r.id === id ? f(r) : r)));
   const approveRun = (r: PayrollRun) => {
-    if (r.needsRecalculation) { alert('Recalculate before approving.'); return; }
+    if (r.needsRecalculation) { toast('Recalculate before approving.', 'error'); return; }
     if (!confirm(`Approve payroll for ${MONTH_NAMES[r.month - 1]} ${r.year}? Payslips become visible to employees.`)) return;
     updateRun(r.id, (x) => ({ ...x, status: 'approved', approvedBy: currentUser.name, approvedAt: new Date().toLocaleString() }));
     logAudit('PAYROLL_APPROVED', r.id, `Approved by ${currentUser.name}`);
@@ -442,7 +443,7 @@ export const HrPayrollModule: React.FC<{ initialTab?: Tab }> = ({ initialTab = '
                               setContracts((p) => p.map((x) => x.id === c.id ? { ...x, signedFile: sf, signedAt: localDate(), status: 'signed' } : x));
                               tick(selEmp, c.type === 'Offer Letter' ? 'Offer letter accepted' : 'Employment contract signed');
                               logAudit('CONTRACT_SIGNED', c.id, `${c.type} v${c.version} signed copy uploaded`);
-                            } catch (er: any) { alert(er.message); }
+                            } catch (er: any) { toast(er.message, 'error'); }
                           }} /></label>}
                       </div></td>
                     </tr>))}</tbody></table>
@@ -765,7 +766,7 @@ const SettingsPanel: React.FC<{ statutory: StatutorySettings; setStatutory: (s: 
             <button className={btnGhost} onClick={() => setS({ ...s, ptSlabs: slabs.filter((_, j) => j !== i) })}>x</button>
           </div>))}
         <button className={`${btnGhost} mt-1`} onClick={() => setS({ ...s, ptSlabs: [...slabs, { min: 0, max: null, amount: 0 }] })}>Add slab</button>
-        <div className="flex justify-end mt-4"><button className={btnPrimary} onClick={() => { setStatutory(s); alert('Saved'); }}>Save statutory settings</button></div>
+        <div className="flex justify-end mt-4"><button className={btnPrimary} onClick={() => { setStatutory(s); toast('Statutory settings saved', 'success'); }}>Save statutory settings</button></div>
       </div>
       <div className={card}>
         <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-white">Working days & holidays</h3>
@@ -782,7 +783,7 @@ const SettingsPanel: React.FC<{ statutory: StatutorySettings; setStatutory: (s: 
         <div className="flex gap-2 mb-2"><input className={inputCls} type="date" value={hol.date} onChange={(e) => setHol({ ...hol, date: e.target.value })} /><input className={inputCls} placeholder="Holiday name" value={hol.name} onChange={(e) => setHol({ ...hol, name: e.target.value })} />
           <button className={btnGhost} disabled={!hol.date || !hol.name} onClick={() => { setR({ ...r, holidays: [...r.holidays, hol].sort((a, b) => a.date.localeCompare(b.date)) }); setHol({ date: '', name: '' }); }}>Add</button></div>
         {r.holidays.map((h) => <div key={h.date} className="flex justify-between text-xs py-1 border-t border-slate-100 dark:border-slate-800"><span>{fmtDate(h.date)} - {h.name}</span><button className="text-rose-600" onClick={() => setR({ ...r, holidays: r.holidays.filter((x) => x.date !== h.date) })}>remove</button></div>)}
-        <div className="flex justify-end mt-4"><button className={btnPrimary} onClick={() => { setRules(r); alert('Saved'); }}>Save working-day rules</button></div>
+        <div className="flex justify-end mt-4"><button className={btnPrimary} onClick={() => { setRules(r); toast('Working-day rules saved', 'success'); }}>Save working-day rules</button></div>
       </div>
     </div>
   );

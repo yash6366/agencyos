@@ -1,3 +1,5 @@
+import { getAuthToken } from './auth/authStorage';
+
 // AGENCYOS_DB: connects the app to the AgencyOS server (PostgreSQL).
 // On sign-in the server sends everything this user may see; every change the app saves is sent
 // back to the server row by row. Turn on with VITE_USE_DB=1 in .env.local.
@@ -19,7 +21,7 @@ const timers: Record<string, number> = {};
 const pending = new Set<string>();
 
 export const dbEnabled = () => ON;
-const token = () => localStorage.getItem(TOKEN) || sessionStorage.getItem(TOKEN) || '';
+const token = () => getAuthToken();
 const clone = (v: any) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
 const read = (k: string) => { try { const s = localStorage.getItem(k); return s === null ? undefined : JSON.parse(s); } catch { return undefined; } };
 
@@ -42,8 +44,14 @@ const labelOf = (k: string) => k.replace(/^paa_(x_)?(os_)?(rec_)?/, '').replace(
 
 // ---------------- write server data into the browser ----------------
 function writeAll(data: Record<string, any>) {
-  for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i)!; if (synced(k) && !(k in data)) origRemove.call(localStorage, k); }
   for (const [k, v] of Object.entries(data)) {
+    const existing = read(k);
+    // If incoming server data is an empty list, but local storage already has valid un-synced records,
+    // preserve the local records and schedule an immediate push to save them to PostgreSQL.
+    if (Array.isArray(v) && v.length === 0 && Array.isArray(existing) && existing.length > 0) {
+      schedule(k);
+      continue;
+    }
     origSet.call(localStorage, k, JSON.stringify(v));
     snapshot[k] = clone(v);
     if (Array.isArray(v)) posMap[k] = new Map(v.map((r: any, i: number) => [String(r?.id ?? i), i * 1024]));

@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import {
+  fetchUserProfile,
+  updateUserProfile,
+  changeUserPassword,
+  revokeUserSession,
+} from '../lib/auth';
 import { Icon } from '../os/icons';
 import { initials } from '../os/OsUi';
 import { roleLabel } from '../os/osConfig';
 
 export interface SessionItem {
   id: string;
-  ip: string;
-  user_agent: string;
+  ip: string | null;
+  user_agent: string | null;
   created_at: string;
   last_seen: string;
   revoked_at?: string | null;
@@ -70,13 +76,8 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
     const loadProfileData = async () => {
       setLoadingData(true);
       try {
-        const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const res = await fetch('/api/auth/profile', { headers });
-        if (res.ok) {
-          const data = await res.json();
+        const data = await fetchUserProfile();
+        if (data) {
           if (data.profile) {
             setPhone(data.profile.phone || '');
             setPersonalEmail(data.profile.personalEmail || '');
@@ -112,29 +113,20 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
     setSaveError(null);
 
     try {
-      const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({
-          phone,
-          personalEmail,
-          address,
-          emergencyContact,
-          bloodGroup,
-          bio,
-        }),
+      const res = await updateUserProfile({
+        phone,
+        personalEmail,
+        address,
+        emergencyContact,
+        bloodGroup,
+        bio,
       });
 
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
-        const err = await res.json();
-        setSaveError(err.error || 'Failed to update profile');
+        setSaveError(res.error || 'Failed to update profile');
       }
     } catch (err: any) {
       setSaveError(err.message || 'Network error');
@@ -155,22 +147,14 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
       return;
     }
 
-    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(newPassword)) {
-      setPwError('Password must be at least 8 characters with both letters and numbers.');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#~^()_+\-={}\[\]|:;"'<>,.\/]).{8,}$/.test(newPassword)) {
+      setPwError('Password must be at least 8 characters with uppercase, lowercase, numbers, and special symbols.');
       setPwSaving(false);
       return;
     }
 
     try {
-      const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/auth/password', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ current: currentPassword, next: newPassword }),
-      });
+      const res = await changeUserPassword(currentPassword, newPassword);
 
       if (res.ok) {
         setPwSuccess(true);
@@ -179,8 +163,7 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
         setConfirmPassword('');
         setTimeout(() => setPwSuccess(false), 3000);
       } else {
-        const err = await res.json();
-        setPwError(err.error || 'Failed to update password');
+        setPwError(res.error || 'Failed to update password');
       }
     } catch (err: any) {
       setPwError(err.message || 'Network error');
@@ -192,16 +175,9 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
   const handleRevokeSession = async (sessionId: string) => {
     if (!window.confirm('Are you sure you want to terminate this session?')) return;
     try {
-      const token = localStorage.getItem('paa_x_jwt_token') || sessionStorage.getItem('paa_x_jwt_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const ok = await revokeUserSession(sessionId);
 
-      const res = await fetch(`/api/auth/sessions/${sessionId}/revoke`, {
-        method: 'POST',
-        headers,
-      });
-
-      if (res.ok) {
+      if (ok) {
         setSessions((prev) =>
           prev.map((s) => (s.id === sessionId ? { ...s, revoked_at: new Date().toISOString() } : s))
         );
@@ -704,7 +680,7 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
                             <strong style={{ fontSize: '13px', color: '#111827' }}>
-                              {s.user_agent.includes('Mozilla') ? 'Web Browser' : 'API Client'}
+                              {(s.user_agent || '').includes('Mozilla') ? 'Web Browser' : 'API Client'}
                             </strong>
                             {s.current && (
                               <span style={{ background: '#E6F6EF', color: '#087F59', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 750 }}>
@@ -721,7 +697,7 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                             IP: <code>{s.ip || '127.0.0.1'}</code> • Last seen: {new Date(s.last_seen).toLocaleString('en-IN')}
                           </div>
                           <div style={{ fontSize: '10.5px', color: '#98A0AD', marginTop: '2px' }}>
-                            {s.user_agent.slice(0, 90)}
+                            {(s.user_agent || '').slice(0, 90)}
                           </div>
                         </div>
 
