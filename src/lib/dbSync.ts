@@ -135,7 +135,7 @@ export async function initDb(): Promise<void> {
 export async function dbLogin(login: string, password: string, remember: boolean): Promise<string | null> {
   try {
     const r = await api('/auth/login', { login, password });
-    if (!r.ok) return r.j?.error || 'Sign-in failed.';
+    if (!r.ok) return r.j?.error || (r.status === 504 ? 'Connection timed out. Please try again.' : 'Sign-in failed.');
     origRemove.call(localStorage, TOKEN); origRemove.call(sessionStorage, TOKEN);
     origSet.call(remember ? localStorage : sessionStorage, TOKEN, r.j.token);
     origSet.call(sessionStorage, 'paa_x_session', JSON.stringify({ userId: r.j.user.id }));

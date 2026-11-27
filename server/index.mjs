@@ -37,12 +37,12 @@ if (E.TOKEN_ENCRYPTION_KEY && E.TOKEN_ENCRYPTION_KEY.length < 16) {
 const USE_SSL = /^(1|true|yes|require)$/i.test(E.DB_SSL || '') || /supabase/i.test((E.DATABASE_URL || '') + (E.DB_HOST || ''));
 const SSL = USE_SSL ? { rejectUnauthorized: false } : undefined;
 const poolConfig = E.DATABASE_URL && !E.DB_PASSWORD
-  ? { connectionString: E.DATABASE_URL.replace(/[?&]sslmode=[^&]*/, ''), ssl: SSL, max: E.VERCEL ? 3 : 10 }
-  : { ...DB, ssl: SSL, max: E.VERCEL ? 3 : 10 };
+  ? { connectionString: E.DATABASE_URL.replace(/[?&]sslmode=[^&]*/, ''), ssl: SSL, max: E.VERCEL ? 2 : 10 }
+  : { ...DB, ssl: SSL, max: E.VERCEL ? 2 : 10 };
 const pool = new pg.Pool({
   ...poolConfig,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: E.VERCEL ? 1000 : 30000,
+  connectionTimeoutMillis: E.VERCEL ? 4000 : 10000,
 });
 pool.on('error', (err) => {
   console.warn('PostgreSQL pool background notice:', err.message);
@@ -219,7 +219,32 @@ const OPEN = ['/', '/api', '/api/server', '/api/status', '/api/health'];
 let isReady = false;
 let readyError = null;
 
-async function runMigrationWithRetry(retries = 3) {
+async function runMigrationWithRetry(retries = E.VERCEL ? 1 : 3) {
+  if (E.VERCEL) {
+    try {
+      await pool.query('SELECT 1 FROM employees LIMIT 1');
+      isReady = true;
+      readyError = null;
+      return true;
+    } catch (err) {
+      if (err.code === '42P01') {
+        try {
+          await migrate();
+          isReady = true;
+          readyError = null;
+          return true;
+        } catch (mErr) {
+          readyError = mErr;
+          console.warn('Initial migration error on serverless:', mErr.message);
+          return false;
+        }
+      }
+      readyError = err;
+      console.warn('PostgreSQL serverless connectivity check notice:', err.message);
+      return false;
+    }
+  }
+
   for (let i = 1; i <= retries; i++) {
     try {
       await migrate();
@@ -340,27 +365,60 @@ app.post('/api/setup/import', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const clientIp = ip(req);
-  const login = String(req.body?.login || '').trim().toLowerCase(); const pw = String(req.body?.password || '');
-  const log = (emp, ok, reason) => pool.query('INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)', [emp?.id || null, login, ok, reason || null, clientIp, String(req.headers['user-agent'] || '').slice(0, 200)]);
-
-  // P0-04: Enforce IP-based rate limiting (protection against credential stuffing and brute force)
-  try {
-    const ipFails = (await pool.query("SELECT count(*)::int n FROM login_events WHERE ip=$1 AND ok=false AND at > now() - interval '15 minutes'", [clientIp])).rows[0].n;
-    if (ipFails >= 10) {
-      return res.status(429).json({ error: 'Too many failed login attempts from this network. Please try again after 15 minutes.' });
-    }
-  } catch (err) {
-    console.warn('IP rate check warning:', err.message);
-  }
+  const login = String(req.body?.login || '').trim().toLowerCase();
+  const pw = String(req.body?.password || '');
 
   if (!login || !pw) return res.status(400).json({ error: 'Enter your work email / employee ID and password.' });
-  const r = await pool.query('SELECT data FROM employees WHERE lower(email)=$1 OR lower(employee_code)=$1 LIMIT 1', [login]);
-  const emp = r.rows[0]?.data;
-  if (!emp) { await log(null, false, 'unknown login'); return res.status(401).json({ error: 'Invalid email or password.' }); }
-  const fails = (await pool.query("SELECT count(*)::int n FROM login_events WHERE employee_id=$1 AND ok=false AND at > now() - interval '15 minutes'", [emp.id])).rows[0].n;
-  if (fails >= 5) return res.status(429).json({ error: 'Too many wrong attempts. Try again after 15 minutes or ask HR / Admin to reset your password.' });
-  if (emp.status === 'inactive') { await log(emp, false, 'inactive'); return res.status(403).json({ error: 'This account is suspended. Contact the Founder or HR.' }); }
-  const cr = (await pool.query('SELECT * FROM user_credentials WHERE employee_id=$1', [emp.id])).rows[0];
+
+  const log = (emp, ok, reason) =>
+    pool
+      .query('INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)', [
+        emp?.id || null,
+        login,
+        ok,
+        reason || null,
+        clientIp,
+        String(req.headers['user-agent'] || '').slice(0, 200),
+      ])
+      .catch((err) => console.warn('login log warning:', err.message));
+
+  // Run IP rate check & employee lookup in parallel for fast execution
+  const [ipRes, empRes] = await Promise.all([
+    pool
+      .query("SELECT count(*)::int n FROM login_events WHERE ip=$1 AND ok=false AND at > now() - interval '15 minutes'", [clientIp])
+      .catch(() => ({ rows: [{ n: 0 }] })),
+    pool.query('SELECT data FROM employees WHERE lower(email)=$1 OR lower(employee_code)=$1 LIMIT 1', [login]),
+  ]);
+
+  if ((ipRes.rows[0]?.n || 0) >= 10) {
+    return res.status(429).json({ error: 'Too many failed login attempts from this network. Please try again after 15 minutes.' });
+  }
+
+  const emp = empRes.rows[0]?.data;
+  if (!emp) {
+    log(null, false, 'unknown login');
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+
+  if (emp.status === 'inactive') {
+    log(emp, false, 'inactive');
+    return res.status(403).json({ error: 'This account is suspended. Contact the Founder or HR.' });
+  }
+
+  // Fetch failed attempts and user credentials in parallel
+  const [failsRes, crRes] = await Promise.all([
+    pool
+      .query("SELECT count(*)::int n FROM login_events WHERE employee_id=$1 AND ok=false AND at > now() - interval '15 minutes'", [emp.id])
+      .catch(() => ({ rows: [{ n: 0 }] })),
+    pool.query('SELECT * FROM user_credentials WHERE employee_id=$1', [emp.id]),
+  ]);
+
+  const fails = failsRes.rows[0]?.n || 0;
+  if (fails >= 5) {
+    return res.status(429).json({ error: 'Too many wrong attempts. Try again after 15 minutes or ask HR / Admin to reset your password.' });
+  }
+
+  const cr = crRes.rows[0];
   let ok = false;
   if (cr) {
     // 1. Direct server-side bcrypt hash
@@ -370,37 +428,49 @@ app.post('/api/auth/login', async (req, res) => {
       ok = await bcrypt.compare(clientHash(pw), cr.password_hash);
       if (ok) {
         const upgraded = await bcrypt.hash(pw, 12);
-        await pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]);
+        pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]).catch(console.warn);
       }
     }
     // 3. Fallback: uninitialized/temporary accounts (must_change=true) matching default passwords
     if (!ok && cr.must_change && isMatchDefault(pw)) {
       ok = true;
       const upgraded = await bcrypt.hash(pw, 12);
-      await pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]);
+      pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]).catch(console.warn);
     }
   } else {
     // Uninitialized password: check against configured INITIAL_ADMIN_PASSWORD or known default passwords
     if (isMatchDefault(pw)) {
       ok = true;
       const initialHash = await bcrypt.hash(pw, 12);
-      await pool.query('INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_by) VALUES ($1,$2,true,$3) ON CONFLICT (employee_id) DO UPDATE SET password_hash=EXCLUDED.password_hash, must_change=true', [emp.id, initialHash, 'init']);
+      await pool
+        .query(
+          'INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_by) VALUES ($1,$2,true,$3) ON CONFLICT (employee_id) DO UPDATE SET password_hash=EXCLUDED.password_hash, must_change=true',
+          [emp.id, initialHash, 'init']
+        )
+        .catch(console.warn);
     } else {
       ok = false;
     }
   }
+
   if (!ok) {
-    await log(emp, false, 'wrong password');
+    log(emp, false, 'wrong password');
     const msg = !cr
       ? 'Account password is not set or temporary activation has expired. Please contact an Administrator to reset your credentials.'
       : `Wrong password. ${Math.max(0, 4 - fails)} attempt(s) left before a 15-minute lock.`;
     return res.status(401).json({ error: msg });
   }
+
   const sid = crypto.randomUUID();
-  await pool.query('INSERT INTO sessions (id, employee_id, ip, user_agent) VALUES ($1,$2,$3,$4)', [sid, emp.id, ip(req), String(req.headers['user-agent'] || '').slice(0, 200)]);
-  await log(emp, true);
-  const ev = { id: 'lg-' + Date.now(), employeeId: emp.id, name: emp.name, role: emp.role, portal: 'server', at: new Date().toLocaleString('en-IN'), ok: true, reason: `IP ${ip(req)}` };
-  await pool.query("INSERT INTO app_records (store, id, data, pos, updated_by) VALUES ('paa_x_login_history', $1, $2, $3, $4)", [ev.id, ev, -Date.now(), emp.id]);
+  const ev = { id: 'lg-' + Date.now(), employeeId: emp.id, name: emp.name, role: emp.role, portal: 'server', at: new Date().toLocaleString('en-IN'), ok: true, reason: `IP ${clientIp}` };
+
+  // Write session, login log, and audit record in parallel
+  await Promise.all([
+    pool.query('INSERT INTO sessions (id, employee_id, ip, user_agent) VALUES ($1,$2,$3,$4)', [sid, emp.id, clientIp, String(req.headers['user-agent'] || '').slice(0, 200)]),
+    log(emp, true),
+    pool.query("INSERT INTO app_records (store, id, data, pos, updated_by) VALUES ('paa_x_login_history', $1, $2, $3, $4)", [ev.id, ev, -Date.now(), emp.id]),
+  ]);
+
   res.json({ token: jwt.sign({ sid }, SECRET, { expiresIn: '7d' }), user: { id: emp.id, name: emp.name, email: emp.email, role: emp.role }, mustChange: !cr || cr.must_change });
 });
 
