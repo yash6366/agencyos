@@ -105,10 +105,16 @@ function MainApp() {
 
   // Sync router URL with activeTab
   useEffect(() => {
+    if (!isAuthenticated) {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '') {
+        window.history.replaceState({ tab: '', params: {} }, '', '/');
+      }
+      return;
+    }
     if (routerTab && routerTab !== activeTab) {
       setActiveTab(routerTab);
     }
-  }, [routerTab, activeTab, setActiveTab]);
+  }, [routerTab, activeTab, setActiveTab, isAuthenticated]);
 
   // Global keyboard shortcut: Ctrl+K / Cmd+K opens search
   useEffect(() => {
@@ -154,19 +160,15 @@ function MainApp() {
     setModalContextData(null);
   };
 
-  // Login page form state
-  const [loginEmail, setLoginEmail] = useState('rajesh.sharma@priorityadsagency.com');
-  const [loginPassword, setLoginPassword] = useState('password123');
-  const [loginRole, setLoginRole] = useState<UserRole>('super_admin');
-  const [rememberMe, setRememberMe] = useState(true);
-
   const unreadNotifs = notifications.filter(n => !n.read);
   useShared<Record<string, string[]>>('paa_x_perm_overrides', {}); // AGENCYOS_V2_PART14 re-render menu when permissions change
   setFieldAccess(currentRole !== 'employee' || currentUser.workMode === 'field'); // AGENCYOS_V2_PART20
   const allowed = canAccess(currentRole, activeTab);
   useEffect(() => {
-    if (isAuthenticated && !canAccess(currentRole, activeTab)) setActiveTab(homeTab(currentRole, currentRole === 'employee' && currentUser.workMode === 'field'));
-  }, [isAuthenticated, currentRole, activeTab]);
+    if (isAuthenticated && (!activeTab || !canAccess(currentRole, activeTab))) {
+      setActiveTab(homeTab(currentRole, currentRole === 'employee' && currentUser.workMode === 'field'));
+    }
+  }, [isAuthenticated, currentRole, activeTab, currentUser.workMode]);
 
   // Available personas matching screenshot
   const personas: { id: string; name: string; role: UserRole; icon: string; label: string }[] = [
@@ -196,7 +198,6 @@ function MainApp() {
         <OsTopbar
           onMenu={() => setSidebarOpen(true)}
           onOpenSearch={() => setSearchOpen(true)}
-          onOpenProfile={() => setProfileOpen(true)}
           onOpenCalendar={() => setCalendarOpen(true)}
         />
         <main className="page">

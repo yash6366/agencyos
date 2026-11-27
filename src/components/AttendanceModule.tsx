@@ -163,32 +163,34 @@ export const AttendanceModule: React.FC<{ onOpenRegularizeModal: () => void }> =
     <div className="space-y-6">
 
       {/* Module Title & Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="legacy-title text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Attendance & Working Hours Desk</span>
-          </h2>
-          <p className="legacy-title text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#0B1738] dark:bg-[#F5B82E]"></span>
+            <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <Clock className="w-5 h-5 text-[#0B1738] dark:text-[#F5B82E]" />
+              <span>Attendance & Working Hours Desk</span>
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Official Shift: 09:30 AM – 06:30 PM (Grace till 09:45 AM) · Biometric & Login Auto-Sync
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-xs"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
           </button>
           <button
             onClick={onOpenRegularizeModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#0B1738] hover:bg-[#162756] text-white shadow-sm transition-all cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Regularize Attendance</span>
+            <Plus className="w-3.5 h-3.5 text-[#F5B82E]" />
+            <span>Regularize Attendance</span>
           </button>
         </div>
       </div>
@@ -344,29 +346,33 @@ export const AttendanceModule: React.FC<{ onOpenRegularizeModal: () => void }> =
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Present Today</span>
-            <UserCheck className="w-4 h-4 text-emerald-600" />
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center">
+              <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-2xl font-black font-mono text-slate-900 dark:text-white tabular-nums">
               {presentCount} <span className="text-xs font-normal text-slate-500">/ {totalStaff}</span>
             </span>
-            <span className="text-xs font-mono text-emerald-600 font-bold">
+            <span className="text-xs font-mono text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
               {Math.round((presentCount / totalStaff) * 100)}%
             </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">Logged into AgencyOS workdesk</p>
         </div>
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Late Check-ins</span>
-            <Clock className="w-4 h-4 text-amber-600" />
+            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 tabular-nums">
               {lateCount}
             </span>
             <span className="text-xs text-slate-500 font-mono">Past 09:45 AM</span>
@@ -374,30 +380,38 @@ export const AttendanceModule: React.FC<{ onOpenRegularizeModal: () => void }> =
           <p className="text-[11px] text-slate-500 mt-1">15m grace window exceeded</p>
         </div>
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Field Visits</span>
-            <MapPin className="w-4 h-4 text-blue-600" />
+            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center">
+              <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-2xl font-black font-mono text-slate-900 dark:text-white tabular-nums">
               {fieldVisitCount}
             </span>
-            <span className="text-xs text-blue-600 font-bold font-mono">Active GPS</span>
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-bold font-mono bg-blue-50 dark:bg-blue-950/80 px-2 py-0.5 rounded-md">
+              Active GPS
+            </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">Client site meetings ongoing</p>
         </div>
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">On Leave</span>
-            <UserX className="w-4 h-4 text-purple-600" />
+            <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center">
+              <UserX className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <span className="text-2xl font-black font-mono text-purple-600 dark:text-purple-400 tabular-nums">
               {onLeaveCount}
             </span>
-            <span className="text-xs text-purple-600 font-bold font-mono">Approved</span>
+            <span className="text-xs text-purple-600 dark:text-purple-400 font-bold font-mono bg-purple-50 dark:bg-purple-950/80 px-2 py-0.5 rounded-md">
+              Approved
+            </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">Casual / Sick / Privilege off</p>
         </div>

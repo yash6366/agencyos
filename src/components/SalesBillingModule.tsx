@@ -67,28 +67,28 @@ export const SalesBillingModule: React.FC<SalesBillingProps> = ({
         <div className="flex items-center flex-wrap gap-2">
           <button
             onClick={onOpenCreateInvoiceModal}
-            className={(only === 'quotations' ? 'hidden ' : '') + "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer"}
+            className={(only === 'quotations' ? 'hidden ' : '') + "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#0D7A53] hover:bg-[#0a6343] text-white shadow-xs cursor-pointer transition-colors active:translate-y-px"}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Create Invoice</span>
           </button>
           <button
             onClick={onOpenCreateQuotationModal}
-            className={(only === 'invoices' ? 'hidden ' : '') + "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer"}
+            className={(only === 'invoices' ? 'hidden ' : '') + "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#0B1738] hover:bg-[#142754] text-white shadow-xs cursor-pointer transition-colors active:translate-y-px"}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Create Quotation</span>
           </button>
           <button
             onClick={() => onOpenRecordPaymentModal()}
-            className={(only === 'quotations' ? 'hidden ' : '') + "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 dark:bg-slate-800 text-white border border-slate-700 hover:bg-slate-800 cursor-pointer"}
+            className={(only === 'quotations' ? 'hidden ' : '') + "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#0B1738] text-white border border-[#0B1738] hover:bg-[#142754] shadow-xs cursor-pointer transition-colors active:translate-y-px"}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Record Payment</span>
           </button>
           <button
             onClick={onOpenAddExpenseModal}
-            className={(!!only ? 'hidden ' : '') + "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"}
+            className={(!!only ? 'hidden ' : '') + "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs cursor-pointer transition-colors active:translate-y-px"}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Add Expense</span>
@@ -97,7 +97,7 @@ export const SalesBillingModule: React.FC<SalesBillingProps> = ({
       </div>
 
       {/* Sub-tab Navigation */}
-      <div className={`flex items-center gap-2 overflow-x-auto pb-1 ${only ? 'hidden' : ''}`}>
+      <div className={`flex items-center gap-1.5 overflow-x-auto pb-1 ${only ? 'hidden' : ''}`}>
         {[
           { id: 'invoices', label: `Invoices (${invoices.length})` },
           { id: 'quotations', label: `Quotations (${quotations.length})` },
@@ -108,9 +108,9 @@ export const SalesBillingModule: React.FC<SalesBillingProps> = ({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0 ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer shrink-0 ${
               activeTab === tab.id
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-[#0B1738] text-white shadow-xs'
                 : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >

@@ -118,9 +118,9 @@ export const CrmModule: React.FC<CrmProps> = ({
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => { setActiveSubTab('leads'); setSelectedClient(null); }}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                 activeSubTab === 'leads' && !selectedClient
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-blue-400 shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -128,9 +128,9 @@ export const CrmModule: React.FC<CrmProps> = ({
             </button>
             <button
               onClick={() => { setActiveSubTab('clients'); }}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                 activeSubTab === 'clients' || selectedClient
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-blue-400 shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -141,7 +141,7 @@ export const CrmModule: React.FC<CrmProps> = ({
           {activeSubTab === 'leads' ? (
             <button
               onClick={onOpenAddLeadModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#0B1738] hover:bg-[#142754] text-white shadow-xs cursor-pointer transition-colors active:translate-y-px"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Add Lead</span>
@@ -149,7 +149,7 @@ export const CrmModule: React.FC<CrmProps> = ({
           ) : (
             <button
               onClick={onOpenAddClientModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#0B1738] hover:bg-[#142754] text-white shadow-xs cursor-pointer transition-colors active:translate-y-px"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Add Client</span>
@@ -376,16 +376,51 @@ export const CrmModule: React.FC<CrmProps> = ({
         /* LEADS PIPELINE VIEW */
         /* ======================================================== */
         <div className="space-y-4">
-          <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-            <div className="relative">
+          {/* Executive Pipeline KPI Summary Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Pipeline</span>
+              <div className="mt-1 text-2xl font-extrabold font-mono text-[#0B1738] dark:text-white tabular-nums">
+                {leads.length}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">Active prospects tracked</p>
+            </div>
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">In Negotiation</span>
+              <div className="mt-1 text-2xl font-extrabold font-mono text-blue-600 dark:text-blue-400 tabular-nums">
+                {leads.filter(l => ['qualified', 'proposal', 'negotiation'].includes(l.status)).length}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">Active high-intent deals</p>
+            </div>
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-[11px] font-bold text-[#0D7A53] dark:text-emerald-400 uppercase tracking-wider block">Deals Won</span>
+              <div className="mt-1 text-2xl font-extrabold font-mono text-[#0D7A53] dark:text-emerald-400 tabular-nums">
+                {leads.filter(l => l.status === 'won').length}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">Successfully closed</p>
+            </div>
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">Pipeline Value</span>
+              <div className="mt-1 text-2xl font-extrabold font-mono text-[#0B1738] dark:text-white tabular-nums">
+                ₹{leads.reduce((s, l) => s + (l.estimatedValue || 0), 0).toLocaleString('en-IN')}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">Gross prospective revenue</p>
+            </div>
+          </div>
+
+          <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-96">
               <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search leads by company, contact person, code, or phone number..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B1738]/20 focus:border-[#0B1738]"
               />
+            </div>
+            <div className="text-xs text-slate-500 font-medium">
+              Showing <strong className="text-slate-800 dark:text-slate-200 tabular-nums">{filteredLeads.length}</strong> lead(s)
             </div>
           </div>
 
@@ -501,14 +536,14 @@ export const CrmModule: React.FC<CrmProps> = ({
 
                         <td className="p-3 text-right">
                           {lead.status === 'won' ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[#0D7A53] bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 font-bold text-[11px]">
                               <CheckCircle className="w-3.5 h-3.5" />
                               <span>Converted</span>
                             </span>
                           ) : (
                             <button
                               onClick={() => convertLeadToClient(lead.id)}
-                              className="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs inline-flex items-center gap-1"
+                              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#0D7A53] hover:bg-[#0a6343] text-white cursor-pointer shadow-xs inline-flex items-center gap-1.5 transition-all active:translate-y-px"
                             >
                               <span>Convert to Client</span>
                               <ArrowRight className="w-3 h-3" />
@@ -548,22 +583,27 @@ export const CrmModule: React.FC<CrmProps> = ({
               return (
                 <div
                   key={client.id}
-                  className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-xs space-y-3"
+                  className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-xs space-y-3"
                 >
                   <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white text-base">
-                        {client.companyName}
-                      </h4>
-                      <p className="text-xs text-slate-500 font-mono mt-0.5">{client.clientCode}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#EAEFF8] text-[#0B1738] font-bold flex items-center justify-center text-sm border border-[#D5E0F2]">
+                        {client.companyName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">
+                          {client.companyName}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 font-mono">{client.clientCode}</p>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-[#0D7A53] border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400">
                       {client.status}
                     </span>
                   </div>
 
                   <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Contact: <strong className="text-slate-800 dark:text-slate-200">{client.contactPerson}</strong> ({client.email})
+                    Key Contact: <strong className="text-slate-800 dark:text-slate-200">{client.contactPerson}</strong> ({client.email})
                   </p>
 
                   {/* GET ONE / TWO MOBILE - CLIENT DIRECTORY CARD */}
@@ -605,32 +645,34 @@ export const CrmModule: React.FC<CrmProps> = ({
 
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
                     <div>
                       <span className="font-semibold text-slate-700 dark:text-slate-300">{clientPrjs.length} Projects</span>
                       <span className="mx-1">·</span>
-                      <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">
+                      <span className="font-mono text-[#0B1738] dark:text-blue-400 font-bold">
                         {invoices.filter(i => i.clientId === client.id).length} Invoice(s)
                       </span>
                       {invoices.filter(i => i.clientId === client.id).length > 0 && (
-                        <span className="font-mono text-slate-500 text-[10px] block">
-                          ₹{invoices.filter(i => i.clientId === client.id).reduce((s, i) => s + i.totalAmount, 0).toLocaleString()} billed
+                        <span className="font-mono text-slate-500 text-[10px] block tabular-nums">
+                          ₹{invoices.filter(i => i.clientId === client.id).reduce((s, i) => s + i.totalAmount, 0).toLocaleString('en-IN')} billed
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => setEditClient(client)}
-                      className="text-slate-600 dark:text-slate-300 font-semibold hover:underline cursor-pointer mr-3"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => setSelectedClient(client)}
-                      className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
-                    >
-                      <span>View Client 360</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditClient(client)}
+                        className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 hover:bg-slate-100 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setSelectedClient(client)}
+                        className="px-2.5 py-1 text-xs font-semibold text-[#0B1738] bg-[#EAEFF8] hover:bg-[#dce5f5] rounded-md border border-[#D5E0F2] flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <span>Client 360</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

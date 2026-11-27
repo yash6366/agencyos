@@ -60,24 +60,27 @@ export const AuditSettingsModule: React.FC = () => {
     <div className="space-y-6">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="legacy-title text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Audit Trail, Daily Work Activities & Company Rules</span>
-          </h2>
-          <p className="legacy-title text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Traceable activity logs · Daily work logs · Company attendance rules
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#0B1738] dark:bg-[#F5B82E]"></span>
+            <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-[#0B1738] dark:text-[#F5B82E]" />
+              <span>Audit Trail, Daily Work Activities & Company Rules</span>
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Traceable activity logs · Daily work logs · Company attendance rules & enterprise policies
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setActiveTab('audit')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                 activeTab === 'audit'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-[#F5B82E] shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
@@ -85,9 +88,9 @@ export const AuditSettingsModule: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('activities')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                 activeTab === 'activities'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-[#F5B82E] shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
@@ -95,9 +98,9 @@ export const AuditSettingsModule: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                 activeTab === 'settings'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-[#F5B82E] shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >

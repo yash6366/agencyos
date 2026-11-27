@@ -20,14 +20,14 @@ import { docHtml } from './DocumentCenter';
 import { letterPage, openBrandDoc } from '../lib/brandDocs';
 
 // ---------- small UI helpers (Tailwind, matches the rest of the app) ----------
-const inputCls = 'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs';
-const btn = 'px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50';
-const btnPrimary = `${btn} bg-blue-600 hover:bg-blue-700 text-white`;
+const inputCls = 'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#0B1738]';
+const btn = 'px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50 transition-all';
+const btnPrimary = `${btn} bg-[#0B1738] hover:bg-[#162756] text-white shadow-xs`;
 const btnGhost = `${btn} border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800`;
-const btnGood = `${btn} bg-emerald-600 hover:bg-emerald-700 text-white`;
-const card = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4';
-const th = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500 font-bold';
-const td = 'px-3 py-2 text-xs text-slate-700 dark:text-slate-300 align-top';
+const btnGood = `${btn} bg-[#0D7A53] hover:bg-[#0b6343] text-white shadow-xs`;
+const card = 'bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-4 shadow-xs';
+const th = 'px-3 py-2.5 text-left text-[10px] uppercase tracking-wider text-slate-500 font-bold bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800';
+const td = 'px-3 py-2.5 text-xs text-slate-700 dark:text-slate-300 align-top tabular-nums';
 
 const Badge: React.FC<{ v: string }> = ({ v }) => {
   const good = ['completed', 'verified', 'signed', 'paid', 'approved', 'finalised', 'active'];
@@ -343,12 +343,15 @@ export const HrPayrollModule: React.FC<{ initialTab?: Tab }> = ({ initialTab = '
 
   return (
     <div className="space-y-5">
-      <div className="pb-2 border-b border-slate-200 dark:border-slate-800">
-        <h2 className="legacy-title text-xl font-bold text-slate-900 dark:text-white">HR, Onboarding & Payroll</h2>
-        <p className="legacy-title text-xs text-slate-500">Onboarding checklist, documents, contracts, salary structure, attendance finalisation and monthly payroll.</p>
+      <div className="pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#0B1738] dark:bg-[#F5B82E]"></span>
+          <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">HR, Onboarding & Payroll</h2>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Onboarding checklist, documents, contracts, salary structure, attendance finalisation and monthly payroll.</p>
         <div className="flex flex-wrap gap-1.5 mt-3">
           {tabs.map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={`${btn} ${tab === k ? 'bg-slate-900 text-white dark:bg-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} className={`${btn} ${tab === k ? 'bg-[#0B1738] text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>{l}</button>
           ))}
         </div>
       </div>

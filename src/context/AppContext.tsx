@@ -235,7 +235,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const p = window.location.pathname.replace(/^\/+/, '');
       if (p) return p;
     }
-    return 'dashboard';
+    return '';
   });
 
   const setActiveTab = (tab: string) => {
@@ -268,7 +268,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   // Current logged in user & role
-  const [currentUserId, setCurrentUserId] = useState<string>(() => { try { return JSON.parse(sessionStorage.getItem('paa_x_session') || 'null')?.userId || 'emp-1'; } catch { return 'emp-1'; } }); // Ningappa B. (Super Admin) by default
+  const [currentUserId, setCurrentUserId] = useState<string>(() => { try { return JSON.parse(sessionStorage.getItem('paa_x_session') || 'null')?.userId || 'emp-1'; } catch { return 'emp-1'; } });
   const currentUser = employees.find(e => e.id === currentUserId) || employees[0];
   const [currentRole, setCurrentRole] = useState<UserRole>(currentUser.role);
 
@@ -787,6 +787,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsAuthenticated(false);
     sessionStorage.removeItem('paa_x_session');
     sessionStorage.removeItem('paa_x_must_change');
+    setActiveTabState('');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({ tab: '', params: {} }, '', '/');
+    }
   };
 
   // Switch active user & sync role & desk

@@ -1,23 +1,23 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Client, Task } from '../types';
 
-const input = 'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs';
-const label = 'block font-semibold text-slate-700 dark:text-slate-300 mb-1 text-xs';
+const input = 'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0B1738]/20 focus:border-[#0B1738] transition-all shadow-xs';
+const label = 'block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 text-xs';
 
 // Mobile numbers: keep digits, require 10 digits (with or without +91)
 export const cleanMobile = (v: string) => v.replace(/[^\d+]/g, '');
 export const isValidMobile = (v?: string) => !v || /^(\+?91)?[6-9]\d{9}$/.test(cleanMobile(v));
 
 const Shell: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-start justify-center p-4 overflow-y-auto" onMouseDown={onClose}>
-    <div className="w-full max-w-2xl mt-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl" onMouseDown={e => e.stopPropagation()}>
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800">
-        <h3 className="font-bold text-sm text-slate-900 dark:text-white">{title}</h3>
-        <button onClick={onClose} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"><X className="w-4 h-4" /></button>
+  <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-start justify-center p-4 overflow-y-auto animate-in fade-in duration-150" onMouseDown={onClose}>
+    <div className="w-full max-w-2xl mt-8 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden" onMouseDown={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+        <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-white">{title}</h3>
+        <button onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"><X className="w-4 h-4" /></button>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </div>
   </div>
 );
@@ -60,9 +60,9 @@ export const ClientEditModal: React.FC<{ client: Client; onClose: () => void }> 
         <div className="sm:col-span-2"><label className={label}>Billing address</label><textarea rows={2} className={input} value={f.billingAddress} onChange={e => set('billingAddress', e.target.value)} /></div>
         <div className="sm:col-span-2"><label className={label}>Notes</label><textarea rows={2} className={input} value={f.notes} onChange={e => set('notes', e.target.value)} /></div>
         {err && <p className="sm:col-span-2 text-rose-600 text-xs font-semibold">{err}</p>}
-        <div className="sm:col-span-2 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer">Cancel</button>
-          <button className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">Save client</button>
+        <div className="sm:col-span-2 flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-semibold cursor-pointer transition-colors shadow-xs">Cancel</button>
+          <button className="px-4 py-2 rounded-lg bg-[#0B1738] hover:bg-[#142754] text-white text-xs font-bold cursor-pointer transition-all active:translate-y-px shadow-xs">Save client</button>
         </div>
       </form>
     </Shell>
@@ -110,11 +110,11 @@ export const TaskEditModal: React.FC<{ task: Task; onClose: () => void }> = ({ t
         <div><label className={label}>Estimated hours</label><input type="number" className={input} value={f.estimatedHours} onChange={e => set('estimatedHours', Number(e.target.value))} /></div>
         <div><label className={label}>Actual hours</label><input type="number" className={input} value={f.actualHours} onChange={e => set('actualHours', Number(e.target.value))} /></div>
         {err && <p className="sm:col-span-2 text-rose-600 text-xs font-semibold">{err}</p>}
-        <div className="sm:col-span-2 flex justify-between gap-2">
-          <button type="button" onClick={() => { if (confirm('Delete this task?')) { deleteTask(task.id); onClose(); } }} className="px-4 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 border border-rose-200 dark:border-rose-900 text-xs font-bold cursor-pointer">Delete task</button>
+        <div className="sm:col-span-2 flex justify-between gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <button type="button" onClick={() => { if (confirm('Delete this task?')) { deleteTask(task.id); onClose(); } }} className="px-3.5 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-[#B91C1C] border border-rose-200 dark:border-rose-900 text-xs font-semibold hover:bg-rose-100 cursor-pointer transition-colors shadow-xs">Delete task</button>
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer">Cancel</button>
-            <button className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">Save task</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 text-xs font-semibold cursor-pointer transition-colors shadow-xs">Cancel</button>
+            <button className="px-4 py-2 rounded-lg bg-[#0B1738] hover:bg-[#142754] text-white text-xs font-bold cursor-pointer transition-all active:translate-y-px shadow-xs">Save task</button>
           </div>
         </div>
       </form>

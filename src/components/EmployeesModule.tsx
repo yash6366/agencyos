@@ -143,13 +143,18 @@ export const EmployeesModule: React.FC<{
                   className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3"
                 >
                   <div className="flex items-start justify-between">
-                    <div>
-                      <span className="font-mono text-xs text-slate-400">{emp.employeeId}</span>
-                      <h4 className="font-bold text-slate-900 dark:text-white text-base mt-0.5">{emp.name}</h4>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">{desig?.title || emp.designationId}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#EAEFF8] text-[#0B1738] font-bold flex items-center justify-center text-sm border border-[#D5E0F2]">
+                        {emp.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="font-mono text-[11px] text-slate-400 font-semibold">{emp.employeeId}</span>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">{emp.name}</h4>
+                        <p className="text-xs text-[#0B1738] dark:text-blue-400 font-medium">{desig?.title || emp.designationId}</p>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                      {emp.role.replace('_', ' ')}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      {emp.role.replace(/_/g, ' ')}
                     </span>
                   </div>
 
@@ -199,16 +204,16 @@ export const EmployeesModule: React.FC<{
                   )}
 
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">{emp.experienceYears} yrs experience</span>
+                    <span className="text-[11px] text-slate-500 font-medium">{emp.experienceYears} yrs experience</span>
                     <button
                       onClick={() => openDocument('experience_letter', `Experience Certificate - ${emp.name}`, {
                         name: emp.name,
                         designation: desig?.title || emp.designationId,
                         joiningDate: emp.joiningDate
                       })}
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      className="px-2.5 py-1 text-xs font-semibold text-[#0B1738] bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer flex items-center gap-1 transition-colors"
                     >
-                      Certificate →
+                      <span>Certificate →</span>
                     </button>
                   </div>
                 </div>

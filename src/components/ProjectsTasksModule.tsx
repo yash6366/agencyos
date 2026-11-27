@@ -124,9 +124,9 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setActiveTab('my_tasks')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                 activeTab === 'my_tasks'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-blue-400 shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -135,9 +135,9 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
             <button
               hidden={isStaffRole(currentRole)}
               onClick={() => setActiveTab('task_operations')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                 activeTab === 'task_operations'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-blue-400 shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -145,9 +145,9 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('projects')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                 activeTab === 'projects'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-blue-400 shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -158,7 +158,7 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
           <button
             hidden={isStaffRole(currentRole)}
             onClick={onOpenAddTaskModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#0B1738] hover:bg-[#142754] text-white shadow-xs cursor-pointer transition-colors active:translate-y-px"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Add Task</span>
@@ -166,7 +166,7 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
           <button
             hidden={isStaffRole(currentRole)}
             onClick={onOpenAddProjectModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 dark:bg-slate-800 text-white border border-slate-700 hover:bg-slate-800 cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 text-[#0B1738] border border-slate-300 dark:border-slate-700 hover:bg-slate-50 cursor-pointer transition-colors active:translate-y-px"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Add Project</span>
@@ -219,14 +219,14 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
 
           {/* Search & Status Filter */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-            <div className="flex items-center gap-1 overflow-x-auto text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
               {['all', 'in_progress', 'todo', 'review', 'completed'].map(st => (
                 <button
                   key={st}
                   onClick={() => setMyTasksStatusFilter(st)}
-                  className={`px-3 py-1.5 rounded-lg font-semibold capitalize cursor-pointer transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg font-semibold capitalize cursor-pointer transition-all ${
                     myTasksStatusFilter === st
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#0B1738] text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
@@ -301,12 +301,12 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
                     </div>
 
                     {/* Personal Action Buttons */}
-                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="pt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-1.5">
                         {task.status === 'todo' && (
                           <button
                             onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                            className="px-2.5 py-1 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white cursor-pointer flex items-center gap-1"
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#0B1738] hover:bg-[#142754] text-white cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors active:translate-y-px"
                           >
                             <Play className="w-3 h-3 fill-current" />
                             <span>Start Working</span>
@@ -315,7 +315,7 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
                         {task.status === 'in_progress' && (
                           <button
                             onClick={() => updateTaskStatus(task.id, 'review')}
-                            className="px-2.5 py-1 text-xs font-semibold rounded bg-amber-600 hover:bg-amber-500 text-white cursor-pointer flex items-center gap-1"
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors active:translate-y-px"
                           >
                             <Send className="w-3 h-3" />
                             <span>Submit QA</span>
@@ -324,14 +324,14 @@ export const ProjectsTasksModule: React.FC<ProjectsTasksProps> = ({
                         {task.status === 'review' && (
                           <button
                             onClick={() => updateTaskStatus(task.id, 'completed')}
-                            className="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer flex items-center gap-1"
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#0D7A53] hover:bg-[#0a6343] text-white cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors active:translate-y-px"
                           >
                             <CheckCircle className="w-3 h-3" />
                             <span>Mark Done</span>
                           </button>
                         )}
                         {task.status === 'completed' && (
-                          <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[#0D7A53] bg-emerald-50 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 font-bold text-xs">
                             <CheckCircle className="w-3.5 h-3.5" />
                             <span>Completed</span>
                           </span>

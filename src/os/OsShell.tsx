@@ -123,9 +123,9 @@ export const OsSidebar: React.FC<{
                     justifyContent: 'space-between',
                     cursor: 'pointer',
                     userSelect: 'none',
-                    padding: '12px 12px 6px',
-                    color: hasActiveChild ? '#0B1738' : '#8791A2',
-                    fontWeight: 800,
+                    padding: '10px 10px 6px',
+                    color: hasActiveChild ? '#0B1738' : '#475569',
+                    fontWeight: 700,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -194,11 +194,8 @@ export const OsSidebar: React.FC<{
               <Icon name="logout" size={14} />
             </button>
           </div>
-          <div className="tiny-note" style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between' }}>
-            <span>AgencyOS • {currentUser.employeeId}</span>
-            <span style={{ color: '#2458A6', cursor: 'pointer', fontWeight: 600 }} onClick={onOpenProfile}>
-              My Account
-            </span>
+          <div className="tiny-note" style={{ marginTop: 8, color: '#94A3B8', fontSize: '11px', textAlign: 'center' }}>
+            AgencyOS Enterprise • {currentUser.employeeId}
           </div>
         </div>
       </aside>
@@ -209,11 +206,10 @@ export const OsSidebar: React.FC<{
 export const OsTopbar: React.FC<{
   onMenu: () => void;
   onOpenSearch?: () => void;
-  onOpenProfile?: () => void;
   onOpenCalendar?: () => void;
-}> = ({ onMenu, onOpenSearch, onOpenProfile, onOpenCalendar }) => {
-  const { activeTab, currentRole, currentUser, logout } = useApp();
-  const { canGoBack, goBack, navigate, params } = useRouter();
+}> = ({ onMenu, onOpenSearch, onOpenCalendar }) => {
+  const { activeTab, currentRole } = useApp();
+  const { navigate, params } = useRouter();
   const alerts = useAlerts().length;
   const breadcrumbs = buildBreadcrumbs(activeTab, params);
 
@@ -228,17 +224,17 @@ export const OsTopbar: React.FC<{
         <nav aria-label="Breadcrumb" className="breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={idx}>
-              {idx > 0 && <span style={{ color: '#D0D5DD' }}>/</span>}
+              {idx > 0 && <span style={{ color: '#CBD5E1', padding: '0 2px' }}>/</span>}
               {crumb.tab && !crumb.isCurrent ? (
                 <span
                   onClick={() => navigate(crumb.tab!, crumb.params)}
-                  style={{ cursor: 'pointer', color: '#2458A6', fontWeight: 600 }}
+                  style={{ cursor: 'pointer', color: '#1D4ED8', fontWeight: 600 }}
                   className="hover-link"
                 >
                   {crumb.label}
                 </span>
               ) : (
-                <span style={{ color: crumb.isCurrent ? '#111827' : '#667085', fontWeight: crumb.isCurrent ? 750 : 500 }}>
+                <span style={{ color: crumb.isCurrent ? '#0F172A' : '#64748B', fontWeight: crumb.isCurrent ? 700 : 500 }}>
                   {crumb.label}
                 </span>
               )}
@@ -253,23 +249,12 @@ export const OsTopbar: React.FC<{
           <button
             onClick={onOpenSearch}
             className="top-search-pill"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 12px',
-              borderRadius: 8,
-              border: '1px solid #E5E7EB',
-              background: '#F8F9FB',
-              color: '#667085',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
             title="Search enterprise records (Ctrl+K)"
+            aria-label="Search enterprise records"
           >
             <Icon name="search" size={14} />
             <span className="hide-mobile">Search AgencyOS...</span>
-            <kbd style={{ fontSize: 10, background: '#EAEFF8', color: '#2458A6', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
+            <kbd style={{ fontSize: 10, background: '#EAEFF8', color: '#1D4ED8', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
               Ctrl+K
             </kbd>
           </button>
@@ -280,6 +265,7 @@ export const OsTopbar: React.FC<{
           <button
             className="top-icon"
             title="Google Calendar Two-Way Sync"
+            aria-label="Google Calendar Two-Way Sync"
             onClick={onOpenCalendar}
           >
             <Icon name="calendarCheck" size={17} />
@@ -292,6 +278,7 @@ export const OsTopbar: React.FC<{
         <button
           className="top-icon"
           title={`Alerts (${alerts})`}
+          aria-label={`Alerts (${alerts})`}
           onClick={() => navigate('alerts')}
           style={{ position: 'relative' }}
         >
@@ -309,29 +296,6 @@ export const OsTopbar: React.FC<{
               }}
             />
           )}
-        </button>
-
-        {/* Dedicated Account Profile Button */}
-        {onOpenProfile && (
-          <button
-            onClick={onOpenProfile}
-            className="top-icon"
-            title="My Profile & Sessions"
-            style={{
-              background: '#F3E9CA',
-              color: '#59440B',
-              fontWeight: 800,
-              fontSize: 12,
-              border: '1px solid #E8D9AB',
-            }}
-          >
-            {initials(currentUser.name)}
-          </button>
-        )}
-
-        {/* Sign out */}
-        <button className="top-icon" title="Sign out" onClick={logout}>
-          <Icon name="logout" size={17} />
         </button>
       </div>
     </header>

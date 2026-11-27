@@ -96,25 +96,28 @@ export const AnalyticsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* View Header with Filters and Export */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="legacy-title text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Productivity & Business Intelligence Analytics</span>
-          </h2>
-          <p className="legacy-title text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#0B1738] dark:bg-[#F5B82E]"></span>
+            <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#0B1738] dark:text-[#F5B82E]" />
+              <span>Productivity & Business Intelligence Analytics</span>
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Real-time cross-module insights: Attendance · Field Force · Sales Funnel · Billables · Velocity
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Segmented Time Filter Button Group */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setDateRange('week')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                 dateRange === 'week'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-[#F5B82E] shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -122,9 +125,9 @@ export const AnalyticsView: React.FC = () => {
             </button>
             <button
               onClick={() => setDateRange('month')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                 dateRange === 'month'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-[#F5B82E] shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -132,9 +135,9 @@ export const AnalyticsView: React.FC = () => {
             </button>
             <button
               onClick={() => setDateRange('quarter')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                 dateRange === 'quarter'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900 text-[#0B1738] dark:text-[#F5B82E] shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -144,9 +147,9 @@ export const AnalyticsView: React.FC = () => {
 
           <button
             onClick={handleExportReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-[#0B1738] hover:bg-[#162756] rounded-lg shadow-xs transition-all cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-[#F5B82E]" />
             <span>Export Analytics</span>
           </button>
         </div>

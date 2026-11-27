@@ -1,4 +1,4 @@
-﻿// Business Finance / Cash Book: every rupee in and out (automatic + manual entries),
+// Business Finance / Cash Book: every rupee in and out (automatic + manual entries),
 // owner capital, loans, withdrawals, profit, reimbursement pool and downloadable statements.
 import React, { useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, FileDown, RefreshCw, Plus, Trash2, Search, Settings2, ExternalLink, Link2 } from 'lucide-react';
@@ -215,10 +215,16 @@ export const FinanceBook: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Finance</h2><p className="text-base text-slate-500 mt-2">Cash, profit, owner funds, loans and every transaction</p></div>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#0B1738] dark:bg-[#F5B82E]"></span>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Business Cash & Financial Ledger</h2>
+          </div>
+          <p className="text-sm text-slate-500 mt-1">Cash, net profit, owner capital, director loans and double-entry reconciliations</p>
+        </div>
         {canEdit && <div className="flex gap-2">
-          <button onClick={() => setModal('settings')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-sm font-semibold cursor-pointer"><Settings2 className="w-4 h-4" />Opening balance</button>
-          <button onClick={() => setModal('add')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold cursor-pointer"><Plus className="w-4 h-4" />Add transaction</button>
+          <button onClick={() => setModal('settings')} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"><Settings2 className="w-3.5 h-3.5" />Opening balance</button>
+          <button onClick={() => setModal('add')} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0B1738] hover:bg-[#162756] text-white text-xs font-bold shadow-xs cursor-pointer transition-all"><Plus className="w-3.5 h-3.5 text-[#F5B82E]" />Add transaction</button>
         </div>}
       </div>
 

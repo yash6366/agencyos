@@ -51,7 +51,7 @@ if (typeof window !== 'undefined') {
 }
 
 function parseUrl(): { tab: string; params: Record<string, string> } {
-  if (typeof window === 'undefined') return { tab: 'founder', params: {} };
+  if (typeof window === 'undefined') return { tab: '', params: {} };
 
   let rawPath = window.location.pathname.replace(/^\/+/, '');
   let rawSearch = window.location.search;
@@ -84,7 +84,7 @@ let historyCount = 0;
 const listeners = new Set<() => void>();
 
 let currentRoute: RouteState = {
-  tab: 'founder',
+  tab: '',
   params: {},
   canGoBack: false,
   historyLength: 0,
@@ -96,7 +96,7 @@ function updateRoute(tab: string, params: Record<string, string>, pushToHistory:
   if (typeof window !== 'undefined') {
     const search = new URLSearchParams(params).toString();
     const queryStr = search ? `?${search}` : '';
-    const newUrl = `/${normTab}${queryStr}`;
+    const newUrl = normTab ? `/${normTab}${queryStr}` : `/${queryStr}`;
 
     if (pushToHistory) {
       if (replace) {
@@ -154,7 +154,7 @@ if (typeof window !== 'undefined') {
     } else {
       const parsed = parseUrl();
       currentRoute = {
-        tab: parsed.tab || 'founder',
+        tab: parsed.tab || '',
         params: parsed.params,
         canGoBack: historyCount > 0,
         historyLength: Math.max(0, historyCount - 1),
@@ -177,7 +177,7 @@ export function navigate(tab: string, params: Record<string, string> = {}, repla
   return true;
 }
 
-export function goBack(fallbackTab: string = 'founder') {
+export function goBack(fallbackTab: string = '') {
   const { dirty, message } = hasUnsavedChanges();
   if (dirty) {
     const proceed = window.confirm(message);

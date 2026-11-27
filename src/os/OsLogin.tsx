@@ -12,9 +12,27 @@ import { DbSetup } from './DbSetup';
 
 export const OsLogin: React.FC = () => {
   const { employees, login } = useApp();
-  const [id, setId] = useState(() => localStorage.getItem('paa_x_remember') || '');
+  const [id, setId] = useState(() => {
+    try {
+      const remembered = localStorage.getItem('paa_x_remember') || '';
+      if (remembered.toLowerCase() === 'ningappa@priorityadsagency.com') {
+        localStorage.removeItem('paa_x_remember');
+        return '';
+      }
+      return remembered;
+    } catch {
+      return '';
+    }
+  });
   const [pw, setPw] = useState('');
-  const [remember, setRemember] = useState(!!localStorage.getItem('paa_x_remember'));
+  const [remember, setRemember] = useState(() => {
+    try {
+      const remembered = localStorage.getItem('paa_x_remember');
+      return !!remembered && remembered.toLowerCase() !== 'ningappa@priorityadsagency.com';
+    } catch {
+      return false;
+    }
+  });
   const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false); const [show, setShow] = useState(false);
   const log = (e: Omit<LoginEvent, 'id' | 'at'>) => writeKey(LOGIN_LOG_KEY, [{ ...e, id: uid('lg'), at: nowStamp() }, ...readKey<LoginEvent[]>(LOGIN_LOG_KEY, [])].slice(0, 2000));
 
@@ -57,7 +75,7 @@ export const OsLogin: React.FC = () => {
     writeKey(RESET_KEY, [{ id: uid('rst'), login: id.trim(), employeeId: emp?.id, at: nowStamp(), status: 'open' } as ResetRequest, ...readKey<ResetRequest[]>(RESET_KEY, [])]);
     setErr(''); setInfo('Reset request sent to HR / Admin. They will reset your password and tell you the temporary password.');
   };
-  const match = employees.find((e) => e.email.toLowerCase() === id.trim().toLowerCase() || e.employeeId.toLowerCase() === id.trim().toLowerCase());
+  const match = id.trim() ? employees.find((e) => e.email.toLowerCase() === id.trim().toLowerCase() || e.employeeId.toLowerCase() === id.trim().toLowerCase()) : undefined;
 
   return (
     <div className="login-screen">

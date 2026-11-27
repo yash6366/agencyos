@@ -139,13 +139,16 @@ export const LeaveManagementModule: React.FC = () => {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="legacy-title text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Leave Management & Time-Off Balance</span>
-          </h2>
-          <p className="legacy-title text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#0B1738] dark:bg-[#F5B82E]"></span>
+            <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-[#0B1738] dark:text-[#F5B82E]" />
+              <span>Leave Management & Time-Off Balance</span>
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Annual entitlements, half-day leaves, medical approvals & emergency contact audit
           </p>
         </div>
@@ -153,10 +156,10 @@ export const LeaveManagementModule: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsApplyModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#0B1738] hover:bg-[#162756] text-white shadow-sm transition-all cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Apply for Leave</span>
+            <Plus className="w-3.5 h-3.5 text-[#F5B82E]" />
+            <span>Apply for Leave</span>
           </button>
         </div>
       </div>
@@ -273,12 +276,12 @@ export const LeaveManagementModule: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
               activeTab === 'all'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-[#0B1738] text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
@@ -286,24 +289,24 @@ export const LeaveManagementModule: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('pending')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'pending'
-                ? 'bg-amber-600 text-white'
-                : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50'
+                ? 'bg-[#0B1738] text-white shadow-xs'
+                : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50'
             }`}
           >
             <span>Pending</span>
             {pendingCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-white text-amber-700 text-[10px] flex items-center justify-center font-bold">
+              <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-black">
                 {pendingCount}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab('approved')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
               activeTab === 'approved'
-                ? 'bg-emerald-600 text-white'
+                ? 'bg-[#0B1738] text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
@@ -311,9 +314,9 @@ export const LeaveManagementModule: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('rejected')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
               activeTab === 'rejected'
-                ? 'bg-rose-600 text-white'
+                ? 'bg-[#0B1738] text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >

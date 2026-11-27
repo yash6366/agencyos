@@ -1,4 +1,4 @@
-﻿// AGENCYOS_V3_OS: role dashboards with live data
+// AGENCYOS_V3_OS: role dashboards with live data
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { readKey } from '../lib/sharedStore';
@@ -41,37 +41,88 @@ export const FounderDashboard: React.FC = () => {
   const expPending = queue.filter((q) => q.key.startsWith('ex-') || q.key.startsWith('rmb-'));
   const days = last7();
   const t = today(); const in7 = new Date(); in7.setDate(in7.getDate() + 7); const t7 = in7.toISOString().slice(0, 10);
-  const plans = ev.filter((e) => e.date >= t && e.date <= t7).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+  const plans = ev.filter((e) => e.date >= t && e.date <= t7).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
+  const weeklyTotal = collectionsBy(allPay, days).reduce((a, b) => a + b, 0);
+
   return (<>
     <div className="kpis">
       <Kpi name="Collections" value={inrS(coll)} desc="Verified this month" icon="money" trend={trend} />
-      <Kpi name="Outstanding" value={inrS(out)} desc="Invoices awaiting payment" icon="receipt" />
-      <Kpi name="Critical Problems" value={String(crit.length).padStart(2, '0')} desc="Require attention" icon="bell" />
+      <Kpi name="Outstanding" value={inrS(out)} desc={`${invoices.filter((i) => (i.balanceAmount || 0) > 0).length} pending invoice(s)`} icon="receipt" />
+      <Kpi name="Critical Problems" value={String(crit.length).padStart(2, '0')} desc={`${alerts.length} total active issue(s)`} icon="bell" />
       <Kpi name="Active Projects" value={String(active.length).padStart(2, '0')} desc="Across delivery teams" icon="briefcase" />
     </div>
+
     <div className="columns thirds">
-      <Panel title="01 / Money" right={<Pill v="Founder only" tone="blue" />}>
-        <Rows items={[['Collections & Cash', `${inrF(coll)} received this month`, coll > 0 ? 'On Track' : 'Pending'], ['Pending Payments', `${overdue.length} overdue invoice(s)`, overdue.length ? 'Action Required' : 'On Track'], ['Expense Approvals', `${expPending.length} pending request(s)`, expPending.length ? 'Pending' : 'Approved']]} />
-        <button className="outline-button full-width" style={{ marginTop: 14 }} onClick={() => setActiveTab('finance_desk')}>Open Finance</button>
+      <Panel title="01 / Money" right={<Pill v="Executive" tone="blue" />}>
+        <Rows items={[
+          ['Collections & Cash', `${inrF(coll)} received this month (${allPay.filter((p) => (p.date || '').startsWith(month)).length} payments)`, coll > 0 ? 'On Track' : 'Pending'],
+          ['Pending Payments', `${overdue.length} overdue invoice(s) totaling ${inrF(overdue.reduce((s, i) => s + (i.balanceAmount || 0), 0))}`, overdue.length ? 'Action Required' : 'On Track'],
+          ['Expense Approvals', `${expPending.length} pending request(s) awaiting sign-off`, expPending.length ? 'Pending' : 'Approved']
+        ]} />
+        <button className="outline-button full-width" style={{ marginTop: 14 }} onClick={() => setActiveTab('finance_desk')}>
+          Open Finance Command →
+        </button>
       </Panel>
-      <Panel title="02 / Problems" right={<Pill v={`${alerts.length} open`} tone="blue" />}>
-        <Rows items={alerts.slice(0, 3).map((a) => [a.title, a.record, a.severity === 'Critical' ? 'Urgent' : a.status])} empty="No problems right now." />
-        <button className="outline-button full-width" style={{ marginTop: 14 }} onClick={() => setActiveTab('alerts')}>Open Alerts</button>
+
+      <Panel title="02 / Problems" right={<Pill v={`${alerts.length} open`} tone={crit.length ? 'red' : 'blue'} />}>
+        <Rows
+          items={alerts.slice(0, 3).map((a) => [
+            a.title,
+            `${a.record}${a.owner ? ' · ' + a.owner : ''}${a.raised ? ' · ' + a.raised : ''}`,
+            a.severity === 'Critical' ? 'Urgent' : a.status
+          ])}
+          empty="No open problems. Systems healthy."
+          onClick={() => setActiveTab('alerts')}
+        />
+        <button className="outline-button full-width" style={{ marginTop: 14 }} onClick={() => setActiveTab('alerts')}>
+          View All Alerts ({alerts.length}) →
+        </button>
       </Panel>
-      <Panel title="03 / New Plans" right={<Pill v="This week" tone="blue" />}>
-        <Rows items={plans.map((p) => [p.title, fmtD(p.date), p.date === t ? 'Due' : 'Scheduled'])} empty="Nothing planned in the next 7 days." />
-        <button className="outline-button full-width" style={{ marginTop: 14 }} onClick={() => setActiveTab('calendar')}>Open Planner</button>
+
+      <Panel title="03 / New Plans" right={<Pill v="Next 7 Days" tone="blue" />}>
+        {plans.length ? (
+          <Rows
+            items={plans.map((p) => [p.title, fmtD(p.date), p.date === t ? 'Due Today' : 'Scheduled'])}
+            onClick={() => setActiveTab('calendar')}
+          />
+        ) : (
+          <div className="os-empty" style={{ padding: '24px 12px' }}>
+            <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: 4 }}>No plans in next 7 days</div>
+            <span style={{ fontSize: 11.5 }}>Schedule deliverables and reviews in the Master Calendar.</span>
+          </div>
+        )}
+        <button className="outline-button full-width" style={{ marginTop: 14 }} onClick={() => setActiveTab('calendar')}>
+          Open Master Planner →
+        </button>
       </Panel>
     </div>
+
     <div className="columns">
-      <Panel title="Weekly collections trend" right={<span className="muted">Last 7 days</span>}><Bars values={collectionsBy(allPay, days)} labels={days.map((d) => DAY[new Date(d + 'T00:00:00').getDay()])} legend="Payments received per day" note={inrF(collectionsBy(allPay, days).reduce((a, b) => a + b, 0)) + ' this week'} /></Panel>
-      <Panel title="Founder approvals" right={<span className="link small" onClick={() => setActiveTab('approvals')}>See all</span>}>
-        <Rows items={queue.slice(0, 4).map((q) => [q.category, `${q.code} \u00B7 ${q.scope}`, q.status])} empty="No approvals waiting." onClick={() => setActiveTab('approvals')} />
+      <Panel title="Weekly collections trend" right={<span className="muted">Last 7 days (live verified receipts)</span>}>
+        <Bars
+          values={collectionsBy(allPay, days)}
+          labels={days.map((d) => DAY[new Date(d + 'T00:00:00').getDay()])}
+          legend="Collections received per day"
+          note={`${inrF(weeklyTotal)} received this week`}
+        />
+      </Panel>
+
+      <Panel title="Founder approvals" right={<span className="link small" onClick={() => setActiveTab('approvals')}>View All ({queue.length})</span>}>
+        <Rows
+          items={queue.slice(0, 4).map((q) => [q.category, `${q.code} · ${q.scope} · by ${q.by}`, q.status])}
+          empty="No approvals waiting. Queue is clear."
+          onClick={() => setActiveTab('approvals')}
+        />
       </Panel>
     </div>
+
     <div className="columns equal">
-      <Panel title="Recent activity" right={<span className="muted">Audit timeline</span>}><Activity items={useRecent()} /></Panel>
-      <Panel title="Quick navigation" right={<span className="muted">Role-specific</span>}><QuickNav ids={['leads', 'clients', 'projects', 'approvals', 'employees', 'document_center']} /></Panel>
+      <Panel title="Recent activity" right={<span className="muted">Real-time audit log</span>}>
+        <Activity items={useRecent()} />
+      </Panel>
+      <Panel title="Quick navigation" right={<span className="muted">Executive shortcuts</span>}>
+        <QuickNav ids={['leads', 'clients', 'projects', 'approvals', 'employees', 'document_center']} />
+      </Panel>
     </div>
   </>);
 };

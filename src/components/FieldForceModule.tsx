@@ -86,23 +86,26 @@ export const FieldForceModule: React.FC<FieldForceProps> = ({
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="legacy-title text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-amber-500" />
-            <span>Field Force & Client Meeting Management</span>
-          </h2>
-          <p className="legacy-title text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#0B1738] dark:bg-[#F5B82E]"></span>
+            <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#0B1738] dark:text-[#F5B82E]" />
+              <span>Field Force & Client Meeting Management</span>
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Real-time client site visits · Attendance mode linkage · Direct travel & food reimbursement generation
           </p>
         </div>
 
         <button
           onClick={onOpenStartVisitModal}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-xs transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#0B1738] hover:bg-[#162756] text-white shadow-xs transition-all cursor-pointer"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>+ Start New Field Visit</span>
+          <Plus className="w-3.5 h-3.5 text-[#F5B82E]" />
+          <span>Start New Field Visit</span>
         </button>
       </div>
 
@@ -226,13 +229,13 @@ export const FieldForceModule: React.FC<FieldForceProps> = ({
                 <button
                   type="button"
                   onClick={() => setCompletingVisitId(null)}
-                  className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-xs"
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-[#0B1738] hover:bg-[#162756] rounded-lg shadow-xs cursor-pointer transition-all"
                 >
                   Save & Complete Visit
                 </button>
