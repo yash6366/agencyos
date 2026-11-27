@@ -2,8 +2,8 @@ import { getAuthToken } from './auth/authStorage';
 
 // AGENCYOS_DB: connects the app to the AgencyOS server (PostgreSQL).
 // On sign-in the server sends everything this user may see; every change the app saves is sent
-// back to the server row by row. Turn on with VITE_USE_DB=1 in .env.local.
-const ON = (import.meta as any).env?.VITE_USE_DB === '1';
+// back to the server row by row. Defaults to enabled unless explicitly VITE_USE_DB=0.
+const ON = (import.meta as any).env?.VITE_USE_DB !== '0';
 const API = '/api';
 const TOKEN = 'paa_x_db_token';
 const LOCAL_ONLY = /^(paa_theme|paa_x_session|paa_x_remember|paa_x_failed|paa_x_lockouts|paa_x_must_change|paa_x_os_sel_.*|paa_x_reminders_ran|paa_x_role_accounts_v1|paa_x_os_last_backup|paa_x_db_.*)$/;
