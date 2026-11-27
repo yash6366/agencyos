@@ -26,9 +26,9 @@ const SECRET = process.env.JWT_SECRET || '';
 const E = process.env;
 const DB = { host: E.DB_HOST || 'localhost', port: Number(E.DB_PORT || 5432), user: E.DB_USER || 'postgres', password: E.DB_PASSWORD || '', database: E.DB_NAME || 'agencyos' };
 const PROBLEMS = [];
-if (!E.DATABASE_URL && !E.DB_PASSWORD) { PROBLEMS.push('DATABASE_URL is missing (Vercel > Settings > Environment Variables, then Redeploy)'); console.error('Database settings missing in .env (DATABASE_URL or DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)'); if (!E.VERCEL) process.exit(1); }
+if (E.NODE_ENV !== 'test' && !E.DATABASE_URL && !E.DB_PASSWORD) { PROBLEMS.push('DATABASE_URL is missing (Vercel > Settings > Environment Variables, then Redeploy)'); console.error('Database settings missing in .env (DATABASE_URL or DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)'); if (!E.VERCEL) process.exit(1); }
 const STARTED = Date.now();
-if (SECRET.length < 16) { PROBLEMS.push('JWT_SECRET is missing or shorter than 16 characters'); console.error('JWT_SECRET in .env must be at least 16 characters'); if (!E.VERCEL) process.exit(1); }
+if (E.NODE_ENV !== 'test' && SECRET.length < 16) { PROBLEMS.push('JWT_SECRET is missing or shorter than 16 characters'); console.error('JWT_SECRET in .env must be at least 16 characters'); if (!E.VERCEL) process.exit(1); }
 if (E.TOKEN_ENCRYPTION_KEY && E.TOKEN_ENCRYPTION_KEY.length < 16) {
   PROBLEMS.push('TOKEN_ENCRYPTION_KEY is shorter than 16 characters');
   console.warn('Security notice: TOKEN_ENCRYPTION_KEY should be at least 32 characters for robust AES-256 key derivation');
@@ -237,7 +237,7 @@ async function runMigrationWithRetry(retries = 3) {
   return false;
 }
 
-const READY = runMigrationWithRetry();
+const READY = E.NODE_ENV === 'test' ? Promise.resolve(false) : runMigrationWithRetry();
 
 app.use(async (req, res, next) => {
   if (OPEN.includes(req.path)) return next();
