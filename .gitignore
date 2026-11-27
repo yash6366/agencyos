@@ -1,14 +1,22 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 build/
 dist/
 coverage/
-.DS_Store
-*.log
+
+# Environment files
 .env*
+!.env
 !.env.example
-node_modules/
-dist/
-.env
-.env.local
+!.env.local
+
+# Logs
 *.log
+
+# Backups
 backups/
+
+# OS files
+.DS_Stores
