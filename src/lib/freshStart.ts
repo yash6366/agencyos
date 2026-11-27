@@ -6,7 +6,7 @@ const DATA = ['paa_clients', 'paa_leads', 'paa_invoices', 'paa_payments', 'paa_e
   'paa_reimbursements', 'paa_payslips', 'paa_attendance', 'paa_leave_requests', 'paa_field_visits', 'paa_notifications', 'paa_daily_activities', 'paa_regularizations', 'paa_audit_logs'];
 
 try {
-  const dbMode = (import.meta as any).env?.VITE_USE_DB !== '0';
+  const dbMode = (import.meta as any).env?.VITE_USE_DB === '1';
   if (!dbMode && !localStorage.getItem(FLAG)) {
     const keys = new Set(DATA);
     for (let i = 0; i < localStorage.length; i++) {

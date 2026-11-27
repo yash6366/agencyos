@@ -6,9 +6,6 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    define: {
-      'import.meta.env.VITE_USE_DB': JSON.stringify(process.env.VITE_USE_DB ?? '1'),
-    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

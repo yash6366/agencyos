@@ -176,21 +176,11 @@ async function auth(req, res, next) {
 // ---------------------------------------------------------------- app
 const app = express();
 
-// Normalize Vercel serverless paths (ensure /api prefix is present for all matched routes)
-app.use((req, _res, next) => {
-  if (req.url && !req.url.startsWith('/api') && !req.url.startsWith('/?')) {
-    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
-  }
-  next();
-});
-
 // P1-01 & P1-02: Security Headers & Explicit CORS Configuration
 app.use((req, res, next) => {
   const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000').split(',').map(s => s.trim());
   const origin = req.headers.origin;
-  const isSameHost = origin && req.headers.host && (origin === `https://${req.headers.host}` || origin === `http://${req.headers.host}`);
-  const isVercel = Boolean(process.env.VERCEL) || (origin && origin.endsWith('.vercel.app'));
-  if (origin && (allowedOrigins.includes(origin) || isSameHost || isVercel || process.env.NODE_ENV !== 'production')) {
+  if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production')) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');

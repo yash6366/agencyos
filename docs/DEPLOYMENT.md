@@ -96,11 +96,10 @@ AgencyOS includes full serverless configuration in `vercel.json` and API proxies
 1. Push your repository to GitHub.
 2. Import the project in Vercel.
 3. Configure Environment Variables in Vercel project settings:
-   - `DATABASE_URL`: Your Supabase/PostgreSQL connection string
-   - `DB_SSL`: `true`
-   - `JWT_SECRET`: Secret key (min. 16 characters)
-   - `TOKEN_ENCRYPTION_KEY`: 32-byte encryption key for OAuth tokens
-   - `VITE_USE_DB`: `1` (ensures database sync mode is enabled)
+   - `DATABASE_URL`
+   - `DB_SSL=true`
+   - `JWT_SECRET`
+   - `TOKEN_ENCRYPTION_KEY`
 4. Deploy. Vercel automatically routes `/api/*` to the serverless backend and serves the Vite static build.
 
 ---
