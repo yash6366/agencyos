@@ -1,9 +1,8 @@
 import { getAuthToken } from './auth/authStorage';
 
 // AGENCYOS_DB: connects the app to the AgencyOS server (PostgreSQL).
-// On sign-in the server sends everything this user may see; every change the app saves is sent
-// back to the server row by row. Turn on with VITE_USE_DB=1 in .env.local.
-const ON = (import.meta as any).env?.VITE_USE_DB === '1';
+// Enabled by default unless explicitly disabled with VITE_USE_DB=0.
+const ON = (import.meta as any).env?.VITE_USE_DB !== '0';
 const API = '/api';
 const TOKEN = 'paa_x_db_token';
 const LOCAL_ONLY = /^(paa_theme|paa_x_session|paa_x_remember|paa_x_failed|paa_x_lockouts|paa_x_must_change|paa_x_os_sel_.*|paa_x_reminders_ran|paa_x_role_accounts_v1|paa_x_os_last_backup|paa_x_db_.*)$/;
@@ -126,7 +125,8 @@ export async function initDb(): Promise<void> {
       try { const c = await api('/changes?since=' + cursor); if (c.ok) { cursor = c.j.cursor; if (c.j.stores.length) banner(`Your team updated: ${c.j.stores.slice(0, 4).map(labelOf).join(', ')}`, { label: 'Refresh', run: async () => { await flush(); location.reload(); } }); } } catch { /* offline */ }
     }, 20000);
   } catch (e: any) {
-    document.body.innerHTML = `<div style="font:14px Inter,Segoe UI,Arial;max-width:520px;margin:12vh auto;padding:28px;border:1px solid #E5E7EB;border-radius:14px;color:#0B1738"><h2 style="margin:0 0 8px">AgencyOS server is not running</h2><p>The app could not reach the database server (${String(e?.message || e)}).</p><p>Open a second PowerShell in the project folder and run:<br><code style="background:#F1F4FA;padding:4px 8px;border-radius:6px;display:inline-block;margin-top:6px">npm.cmd run server</code></p><p>Then refresh this page.</p></div>`;
+    const isDev = Boolean((import.meta as any).env?.DEV);
+    document.body.innerHTML = `<div style="font:14px Inter,Segoe UI,Arial;max-width:520px;margin:12vh auto;padding:28px;border:1px solid #E5E7EB;border-radius:14px;color:#0B1738"><h2 style="margin:0 0 8px">AgencyOS backend is not reachable</h2><p>The app could not communicate with the database backend (${String(e?.message || e)}).</p>${isDev ? '<p>Open a second PowerShell in the project folder and run:<br><code style="background:#F1F4FA;padding:4px 8px;border-radius:6px;display:inline-block;margin-top:6px">npm.cmd run server</code></p>' : '<p>Please check your backend API deployment and database connection variables (DATABASE_URL, DB_SSL).</p>'}<p>Then refresh this page.</p></div>`;
     throw e;
   }
 }
@@ -143,7 +143,12 @@ export async function dbLogin(login: string, password: string, remember: boolean
     if (r.j.mustChange) origSet.call(sessionStorage, 'paa_x_must_change', '1'); else origRemove.call(sessionStorage, 'paa_x_must_change');
     location.reload();
     return null;
-  } catch { return 'Cannot reach the AgencyOS server. Start it with: npm.cmd run server'; }
+  } catch {
+    const isDev = Boolean((import.meta as any).env?.DEV);
+    return isDev
+      ? 'Cannot reach the AgencyOS server. Start it with: npm.cmd run server'
+      : 'Cannot reach the AgencyOS backend server. Please verify your network and server deployment.';
+  }
 }
 export async function dbChangePassword(current: string, next: string): Promise<string | null> {
   try { const r = await api('/auth/password', { current, next }); return r.ok ? null : r.j?.error || 'Could not change password.'; } catch { return 'Server not reachable.'; }
