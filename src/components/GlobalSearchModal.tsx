@@ -314,6 +314,11 @@ export const GlobalSearchModal: React.FC<{ isOpen: boolean; onClose: () => void 
           <Icon name="search" size={20} />
           <input
             ref={inputRef}
+            type="search"
+            name="global_palette_search"
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore="true"
             placeholder="Search leads, clients, employees, tasks, invoices, docs (Ctrl+K)..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}

@@ -50,9 +50,11 @@ export function docHtml(t: DocTemplate, values: Record<string, string>, company:
     return `<b>${esc(f?.type === 'date' ? fmtDate(v) : v)}</b>`;
   }).replace(/\n/g, '<br>');
   let n = 0;
+  const pageBreakMarker = `</div><!-- page-break --><div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:12.5px">`;
   const secs = t.sections.map((s) => {
+    const brk = s.pageBreak ? pageBreakMarker : '';
     const head = s.h ? `<div style="font-weight:700;margin:14px 0 4px">${s.h.startsWith('Subject') || s.h.startsWith('Responsibilities') ? '' : `${++n}. `}${fill(s.h)}</div>` : '';
-    return `${head}<div style="line-height:1.65;margin:${s.h ? '0' : '12px'} 0 0">${fill(s.p)}</div>`;
+    return `${brk}${head}<div style="line-height:1.65;margin:${s.h ? '0' : '12px'} 0 0">${fill(s.p)}</div>`;
   }).join('');
   const sigBox = (label: string, who: string, sig?: Sig, stamp?: string) => `<div style="flex:1;min-width:200px">
     <div style="height:70px;display:flex;align-items:flex-end;gap:8px">${sig ? `<img src="${sig.image}" style="max-height:64px;max-width:200px">` : ''}${stamp && sig ? `<img src="${esc(stamp)}" style="height:66px;opacity:.85;mix-blend-mode:multiply">` : ''}</div>

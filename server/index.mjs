@@ -14,6 +14,7 @@ import { encryptToken, decryptToken } from './utils/crypto.mjs';
 import { convertLead } from './services/leadService.mjs';
 import { createInvoice, calculateInvoiceTotals } from './services/invoiceService.mjs';
 import { calculateServerPayslip } from './services/payrollCalculator.mjs';
+import { verifyMetaWebhookSignature } from './services/webhookService.mjs';
 import { runMigrations } from './migrate.mjs';
 
 import { createRequire } from 'module';
@@ -174,8 +175,36 @@ async function auth(req, res, next) {
 
 // ---------------------------------------------------------------- app
 const app = express();
+
+// P1-01 & P1-02: Security Headers & Explicit CORS Configuration
+app.use((req, res, next) => {
+  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000').split(',').map(s => s.trim());
+  const origin = req.headers.origin;
+  if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Correlation-ID');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Security Headers (CSP, Frame Options, Sniffing protection)
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' ws: wss: http: https:;");
+
+  // P3-01: Correlation ID for structured request observability
+  const reqId = req.headers['x-correlation-id'] || crypto.randomUUID();
+  req.correlationId = reqId;
+  res.setHeader('X-Correlation-ID', reqId);
+
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 app.use(express.json({ limit: '25mb' }));
-app.set('trust proxy', true);
+app.set('trust proxy', 1); // Specific proxy hop trust
 const OPEN = ['/', '/api', '/api/server', '/api/status', '/api/health'];
 
 let isReady = false;
@@ -230,6 +259,20 @@ async function status() {
   } catch (e) { out.db.error = String(e.message); }
   return out;
 }
+app.get('/api/health', async (_req, res) => {
+  try {
+    const dbOk = isReady && (await pool.query('SELECT 1')).rowCount === 1;
+    res.status(dbOk ? 200 : 503).json({
+      status: dbOk ? 'healthy' : 'unhealthy',
+      database: dbOk ? 'connected' : 'disconnected',
+      uptimeSeconds: Math.round((Date.now() - STARTED) / 1000),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(503).json({ status: 'unhealthy', error: err.message });
+  }
+});
+
 app.get('/api/status', async (_q, res) => res.json(await status()));
 app.get(['/', '/api', '/api/server'], async (_q, res) => {
   const s = await status(); const ok = s.db.connected;
@@ -287,12 +330,24 @@ app.post('/api/setup/import', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
+  const clientIp = ip(req);
   const login = String(req.body?.login || '').trim().toLowerCase(); const pw = String(req.body?.password || '');
-  const log = (emp, ok, reason) => pool.query('INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)', [emp?.id || null, login, ok, reason || null, ip(req), String(req.headers['user-agent'] || '').slice(0, 200)]);
+  const log = (emp, ok, reason) => pool.query('INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)', [emp?.id || null, login, ok, reason || null, clientIp, String(req.headers['user-agent'] || '').slice(0, 200)]);
+
+  // P0-04: Enforce IP-based rate limiting (protection against credential stuffing and brute force)
+  try {
+    const ipFails = (await pool.query("SELECT count(*)::int n FROM login_events WHERE ip=$1 AND ok=false AND at > now() - interval '15 minutes'", [clientIp])).rows[0].n;
+    if (ipFails >= 10) {
+      return res.status(429).json({ error: 'Too many failed login attempts from this network. Please try again after 15 minutes.' });
+    }
+  } catch (err) {
+    console.warn('IP rate check warning:', err.message);
+  }
+
   if (!login || !pw) return res.status(400).json({ error: 'Enter your work email / employee ID and password.' });
   const r = await pool.query('SELECT data FROM employees WHERE lower(email)=$1 OR lower(employee_code)=$1 LIMIT 1', [login]);
   const emp = r.rows[0]?.data;
-  if (!emp) { await log(null, false, 'unknown login'); return res.status(401).json({ error: 'No account found with this email or employee ID.' }); }
+  if (!emp) { await log(null, false, 'unknown login'); return res.status(401).json({ error: 'Invalid email or password.' }); }
   const fails = (await pool.query("SELECT count(*)::int n FROM login_events WHERE employee_id=$1 AND ok=false AND at > now() - interval '15 minutes'", [emp.id])).rows[0].n;
   if (fails >= 5) return res.status(429).json({ error: 'Too many wrong attempts. Try again after 15 minutes or ask HR / Admin to reset your password.' });
   if (emp.status === 'inactive') { await log(emp, false, 'inactive'); return res.status(403).json({ error: 'This account is suspended. Contact the Founder or HR.' }); }
@@ -942,6 +997,92 @@ app.get('/api/integrations/google/logs', auth, async (req, res) => {
   res.json(rows);
 });
 
+// ---------------------------------------------------------------- field operations & geofencing
+function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth radius in meters
+  const toRad = (x) => (x * Math.PI) / 180;
+  const phi1 = toRad(lat1);
+  const phi2 = toRad(lat2);
+  const deltaPhi = toRad(lat2 - lat1);
+  const deltaLambda = toRad(lon2 - lon1);
+
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+// Authoritative Field Visit Check-in with Geofence Validation
+app.post('/api/field-visits/:id/check-in', auth, async (req, res) => {
+  const { id } = req.params;
+  const { lat, lng, radiusMeters = 500 } = req.body || {};
+  if (lat === undefined || lng === undefined) {
+    return res.status(400).json({ error: 'Coordinates (lat, lng) are required for check-in.' });
+  }
+
+  try {
+    const vRes = await pool.query('SELECT data FROM field_visits WHERE id=$1', [id]);
+    const visit = vRes.rows[0]?.data;
+    if (!visit) return res.status(404).json({ error: 'Field visit not found.' });
+
+    // Lookup client geocoordinates
+    const cRes = await pool.query('SELECT data FROM clients WHERE id=$1', [visit.clientId]);
+    const client = cRes.rows[0]?.data;
+
+    let distance = 0;
+    let withinGeofence = true;
+    if (client?.lat && client?.lng) {
+      distance = calculateDistanceMeters(Number(lat), Number(lng), Number(client.lat), Number(client.lng));
+      withinGeofence = distance <= (client.geofenceRadius || radiusMeters);
+    }
+
+    const checkInRecord = {
+      ...visit,
+      status: 'in_progress',
+      checkInTime: new Date().toISOString(),
+      checkInLat: lat,
+      checkInLng: lng,
+      distanceFromClientMeters: distance,
+      withinGeofence,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await pool.query('UPDATE field_visits SET status=$1, data=$2, updated_at=now() WHERE id=$3', ['in_progress', checkInRecord, id]);
+    res.json({ ok: true, visit: checkInRecord, withinGeofence, distance });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Authoritative Field Visit Check-out
+app.post('/api/field-visits/:id/check-out', auth, async (req, res) => {
+  const { id } = req.params;
+  const { lat, lng, notes = '', outcome = '' } = req.body || {};
+
+  try {
+    const vRes = await pool.query('SELECT data FROM field_visits WHERE id=$1', [id]);
+    const visit = vRes.rows[0]?.data;
+    if (!visit) return res.status(404).json({ error: 'Field visit not found.' });
+
+    const checkOutRecord = {
+      ...visit,
+      status: 'completed',
+      checkOutTime: new Date().toISOString(),
+      checkOutLat: lat,
+      checkOutLng: lng,
+      notes: notes || visit.notes,
+      outcome: outcome || visit.outcome,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await pool.query('UPDATE field_visits SET status=$1, data=$2, updated_at=now() WHERE id=$3', ['completed', checkOutRecord, id]);
+    res.json({ ok: true, visit: checkOutRecord });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------------------------------------------------------------- domain endpoints & atomic transactions
 // Atomic Lead Conversion
 app.post('/api/leads/:id/convert', auth, async (req, res) => {
@@ -1020,6 +1161,17 @@ app.get('/api/leads', auth, async (req, res) => paginateQuery('leads', req, res,
 app.get('/api/clients', auth, async (req, res) => paginateQuery('clients', req, res, M.CLI));
 app.get('/api/tasks', auth, async (req, res) => paginateQuery('tasks', req, res, M.TSK, 'assigned_employee_id'));
 app.get('/api/invoices', auth, async (req, res) => paginateQuery('invoices', req, res, M.FIN));
+
+// Webhook Security Ingestion Endpoint
+app.post('/api/webhooks/whatsapp', express.raw({ type: 'application/json' }), async (req, res) => {
+  const secret = process.env.META_WEBHOOK_SECRET || process.env.WHATSAPP_WEBHOOK_SECRET || 'paa-webhook-secret-key-default';
+  const sig = req.headers['x-hub-signature-256'] || '';
+  const body = req.body;
+  if (!verifyMetaWebhookSignature(body, sig, secret)) {
+    return res.status(401).json({ error: 'Invalid HMAC signature' });
+  }
+  res.json({ ok: true, received: true });
+});
 
 if (!E.VERCEL && process.env.NODE_ENV !== 'test') {
   app.listen(PORT, async () => {

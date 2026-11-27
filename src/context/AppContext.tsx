@@ -1017,115 +1017,59 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addAuditLog('LEAD_STATUS_UPDATE', leadId, `Status updated to ${status}`);
   };
 
-  // Convert Lead to Client (via Authoritative REST API with optimistic rollback fallback)
-  const convertLeadToClient = (leadId: string) => {
+  // Convert Lead to Client (Single Authoritative Backend Workflow)
+  const convertLeadToClient = async (leadId: string) => {
     const targetLead = leads.find(l => l.id === leadId);
     if (!targetLead) return;
 
-    // Trigger authoritative server-side lead conversion
-    leadsApi.convertLead(leadId).then((serverRes) => {
+    if (targetLead.status === 'converted' || targetLead.status === 'won') {
+      alert('This lead has already been converted.');
+      return;
+    }
+
+    try {
+      // 1. Authoritative Backend Atomic Conversion (PostgreSQL Transaction)
+      const serverRes = await leadsApi.convertLead(leadId);
       if (serverRes?.data?.client) {
+        const clientData = serverRes.data.client as Client;
         setClients(prev => {
-          const clientData = serverRes.data!.client as Client;
           const exists = prev.some(c => c.id === clientData.id);
           return exists ? prev.map(c => c.id === clientData.id ? clientData : c) : [clientData, ...prev];
         });
-      }
-      if (serverRes?.data?.project) {
-        setProjects(prev => {
-          const projectData = serverRes.data!.project as Project;
-          const exists = prev.some(p => p.id === projectData.id);
-          return exists ? prev.map(p => p.id === projectData.id ? projectData : p) : [projectData, ...prev];
-        });
-      }
-    }).catch((err) => {
-      console.warn('Backend lead conversion endpoint fallback:', err.message);
-    });
 
-    const clientCode = `PAA-CL-${Math.floor(50 + Math.random() * 950)}`;
-    const newClient: Client = {
-      id: `cl-${Date.now()}`,
-      clientCode,
-      companyName: targetLead.company,
-      contactPerson: targetLead.contactPerson,
-      email: targetLead.email,
-      phone: targetLead.phone,
-      phone2: targetLead.phone2,
-      website: `www.${targetLead.company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
-      address: 'Bangalore, Karnataka',
-      gstNumber: '29AAACP0000A1Z1',
-      billingAddress: 'Bangalore, Karnataka',
-      accountManagerId: targetLead.assignedEmployeeId || currentUser.id,
-      services: [targetLead.serviceRequired],
-      status: 'active',
-      notes: `Converted from Lead ${targetLead.leadCode}. Original notes: ${targetLead.notes}`,
-      createdAt: todayDateStr,
-      convertedFromLeadId: targetLead.id
-    };
+        // Update lead status with authoritative client reference
+        setLeads(prev => prev.map(l => l.id === leadId ? {
+          ...l,
+          status: 'converted',
+          convertedToClientId: clientData.id
+        } : l));
 
-    setClients(prev => [newClient, ...prev]);
-
-    // Update lead status to won with client reference
-    setLeads(prev => prev.map(l => l.id === leadId ? {
-      ...l,
-      status: 'won',
-      convertedToClientId: newClient.id
-    } : l));
-
-    // Auto-create initial project for converted client
-    const prjCode = `PAA-PRJ-${String(projects.length + 15).padStart(3, '0')}`;
-    const newProject: Project = {
-      id: `prj-${Date.now()}`,
-      projectCode: prjCode,
-      name: `${targetLead.company} — ${targetLead.serviceRequired}`,
-      clientId: newClient.id,
-      projectManagerId: 'emp-3', // Karthik Rao (Technical PM)
-      assignedEmployeeIds: ['emp-4', 'emp-5'],
-      startDate: todayDateStr,
-      endDate: new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0],
-      budget: targetLead.estimatedValue || 350000,
-      status: 'active',
-      priority: targetLead.priority || 'high',
-      description: `Client deliverable project for ${targetLead.company}. Converted from Lead ${targetLead.leadCode}.`
-    };
-    setProjects(prev => [newProject, ...prev]);
-
-    // Auto-generate initial GST Invoice for converted client
-    const invCode = `PAA-INV-2026-${String(invoices.length + 104).padStart(3, '0')}`;
-    const baseAmount = targetLead.estimatedValue || 350000;
-    const taxAmount = Math.round(baseAmount * 0.18);
-    const totalAmount = baseAmount + taxAmount;
-
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      invoiceNumber: invCode,
-      clientId: newClient.id,
-      issueDate: todayDateStr,
-      dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
-      items: [
-        {
-          id: `item-${Date.now()}-1`,
-          description: `${targetLead.serviceRequired} - Phase 1 Retainer & Setup`,
-          quantity: 1,
-          unitPrice: baseAmount,
-          total: baseAmount
+        if (serverRes.data.project) {
+          const projectData = serverRes.data.project as Project;
+          setProjects(prev => {
+            const exists = prev.some(p => p.id === projectData.id);
+            return exists ? prev.map(p => p.id === projectData.id ? projectData : p) : [projectData, ...prev];
+          });
         }
-      ],
-      subtotal: baseAmount,
-      taxAmount: taxAmount,
-      totalAmount: totalAmount,
-      paidAmount: 0,
-      balanceAmount: totalAmount,
-      status: 'issued',
-      notes: `Official tax invoice generated upon lead conversion from ${targetLead.leadCode}. 18% GST compliant.`
-    };
-    setInvoices(prev => [newInvoice, ...prev]);
 
-    addAuditLog('LEAD_CONVERTED_TO_CLIENT', clientCode, `Lead ${targetLead.leadCode} converted to Client ${clientCode}. Project ${prjCode} and Invoice ${invCode} created.`);
-    pushNotification('Lead Converted to Client & Invoice Generated!', `${targetLead.company} onboarded with Project ${prjCode} and Invoice ${invCode} (₹${totalAmount.toLocaleString()}).`, 'system', 'clients');
+        if (serverRes.data.invoice) {
+          const invoiceData = serverRes.data.invoice as Invoice;
+          setInvoices(prev => {
+            const exists = prev.some(inv => inv.id === invoiceData.id);
+            return exists ? prev.map(inv => inv.id === invoiceData.id ? invoiceData : inv) : [invoiceData, ...prev];
+          });
+        }
 
-    // Automatically navigate to Clients Directory
-    setActiveTab('clients');
+        addAuditLog('LEAD_CONVERTED_TO_CLIENT', clientData.clientCode || clientData.id, `Lead ${targetLead.leadCode} converted to Client ${clientData.clientCode || clientData.id}.`);
+        pushNotification('Lead Converted to Client!', `${targetLead.company} successfully onboarded.`, 'system', 'clients');
+        setActiveTab('clients');
+      } else {
+        throw new Error(serverRes?.error || 'Failed to convert lead on server.');
+      }
+    } catch (err: any) {
+      console.error('Lead conversion failed:', err);
+      alert(err.message || 'Lead conversion failed. Please try again.');
+    }
   };
 
   const addClient = (client: Omit<Client, 'id' | 'clientCode' | 'createdAt'>) => {
@@ -1305,28 +1249,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addInvoice = (invoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => {
+    // Generate authoritative client-side idempotency tracking token
+    const idempotencyKey = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const num = `PAA-INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-    const tempId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const newInv: Invoice = {
+
+    const pendingInvoice: Invoice = {
       ...invoice,
-      id: tempId,
+      id: idempotencyKey,
       invoiceNumber: num
     };
-    setInvoices(prev => [newInv, ...prev]);
 
-    // Authoritative backend invoice creation
-    invoicesApi.createInvoice(invoice).then((serverRes) => {
+    // 1. Authoritative Backend Persistence
+    invoicesApi.createInvoice({
+      ...invoice,
+      id: idempotencyKey,
+      number: num
+    } as any).then((serverRes) => {
       if (serverRes?.data && (serverRes.data as any).id) {
         const invData = serverRes.data as Invoice;
-        setInvoices(prev => prev.map(inv => inv.id === tempId ? { ...invData, id: invData.id } : inv));
+        setInvoices(prev => {
+          const exists = prev.some(inv => inv.id === invData.id);
+          return exists
+            ? prev.map(inv => inv.id === invData.id ? invData : inv)
+            : [invData, ...prev.filter(inv => inv.id !== idempotencyKey)];
+        });
       }
     }).catch((err) => {
       console.warn('Backend create invoice fallback:', err.message);
     });
 
+    // 2. Set single consistent in-memory invoice state
+    setInvoices(prev => [pendingInvoice, ...prev]);
+
     addAuditLog('INVOICE_CREATED', num, `Invoice ${num} generated for ₹${invoice.totalAmount}`);
     pushNotification('Invoice Issued', `Invoice ${num} issued for ₹${invoice.totalAmount}.`, 'invoice', 'invoices');
-    return newInv;
+    return pendingInvoice;
   };
 
   const addPayment = (payment: Omit<Payment, 'id' | 'paymentCode'>) => {

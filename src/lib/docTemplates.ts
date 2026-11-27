@@ -7,7 +7,7 @@ export interface TField { k: string; label: string; type?: FieldType; ph?: strin
 export interface DocTemplate {
   id: string; cat: DocCategory; name: string; desc: string; signable: boolean;
   party: 'client' | 'employee' | 'other'; partyLabel: string; fields: TField[];
-  intro: string; sections: { h: string; p: string }[]; closing?: string;
+  intro: string; sections: { h: string; p: string; pageBreak?: boolean }[]; closing?: string;
   annexA?: { h: string; p: string }[]; salary?: boolean; accept?: string;
 }
 
@@ -37,7 +37,7 @@ export const TEMPLATES: DocTemplate[] = [
       { h: 'Fees and payment', p: 'The Client will pay {{fees}}. Payment terms: {{paymentTerms}}. Applicable GST will be charged extra. Ad budgets and third-party costs are paid by the Client separately.' },
       { h: 'Client responsibilities', p: 'The Client will share required content, approvals, brand assets and account access on time. Delays in approvals may shift timelines.' },
       { h: 'Agency responsibilities', p: 'The Agency will deliver the services professionally, follow platform policies and share regular progress reports.' },
-      { h: 'Confidentiality', p: 'Both parties will keep confidential information of the other party private and use it only for this engagement.' },
+      { h: 'Confidentiality', p: 'Both parties will keep confidential information of the other party private and use it only for this engagement.', pageBreak: true },
       { h: 'Intellectual property', p: 'On full payment, final approved deliverables belong to the Client. The Agency may show the work in its portfolio unless the Client objects in writing.' },
       { h: 'Termination', p: 'Either party may end this Agreement with {{noticeDays}} days written notice. Fees for work done up to the end date remain payable.' },
       { h: 'Governing law', p: 'This Agreement is governed by the laws of India. Courts at {{jurisdiction}} have exclusive jurisdiction.' },

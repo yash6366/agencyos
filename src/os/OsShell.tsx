@@ -24,6 +24,17 @@ export const OsSidebar: React.FC<{
   const alerts = useAlerts().filter((a) => a.severity === 'Critical' || a.severity === 'High').length;
   const groups = buildNav(currentRole, q);
 
+  // Guard against browser autofill accidentally populating the navigation filter on load
+  useEffect(() => {
+    if (
+      q &&
+      ((currentUser?.email && q.toLowerCase().includes(currentUser.email.toLowerCase())) ||
+        (currentUser?.employeeId && q.toLowerCase().includes(currentUser.employeeId.toLowerCase())))
+    ) {
+      setQ('');
+    }
+  }, [q, currentUser]);
+
   // Collapsible dropdown groups with persistent state
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     try {
@@ -88,9 +99,30 @@ export const OsSidebar: React.FC<{
           <div className="nav-search" style={{ margin: 0, width: '100%' }}>
             <Icon name="search" size={15} />
             <input
+              type="search"
+              id="sidebar_nav_filter"
+              name="sidebar_nav_filter"
               placeholder="Filter menu..."
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                // Guard against browser password managers auto-filling email or employee ID into sidebar navigation search
+                if (
+                  (currentUser?.email && val.toLowerCase().includes(currentUser.email.toLowerCase())) ||
+                  (currentUser?.employeeId && val.toLowerCase().includes(currentUser.employeeId.toLowerCase()))
+                ) {
+                  return;
+                }
+                setQ(val);
+              }}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              data-form-type="other"
               aria-label="Filter navigation"
             />
           </div>
@@ -209,15 +241,33 @@ export const OsTopbar: React.FC<{
   onOpenCalendar?: () => void;
 }> = ({ onMenu, onOpenSearch, onOpenCalendar }) => {
   const { activeTab, currentRole } = useApp();
-  const { navigate, params } = useRouter();
+  const { navigate, goBack, canGoBack, params } = useRouter();
   const alerts = useAlerts().length;
   const breadcrumbs = buildBreadcrumbs(activeTab, params);
 
   return (
     <header className="topbar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
         <button className="top-icon mobile-toggle" aria-label="Open menu" onClick={onMenu}>
           <Icon name="menu" size={19} />
+        </button>
+
+        {/* Back Button with History Support */}
+        <button
+          className="top-icon"
+          title={canGoBack ? "Go back to previous screen" : "Back"}
+          aria-label="Go back"
+          onClick={() => goBack()}
+          disabled={!canGoBack}
+          style={{
+            opacity: canGoBack ? 1 : 0.4,
+            cursor: canGoBack ? 'pointer' : 'default',
+            width: 32,
+            height: 32,
+            borderRadius: 6,
+          }}
+        >
+          <Icon name="chevronLeft" size={16} />
         </button>
 
         {/* Dynamic Clickable Breadcrumbs */}
@@ -309,7 +359,6 @@ export const OsHeader: React.FC<{ actions?: React.ReactNode }> = ({ actions }) =
   return (
     <div className="titlebar">
       <div>
-        <div className="eyebrow">PRIORITY ADS AGENCY / {p.group.toUpperCase()}</div>
         <h1 className="h1">{hubOf(p.id)?.name || p.name}</h1>
         <p className="subline">{p.subtitle}</p>
       </div>

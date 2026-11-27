@@ -28,7 +28,7 @@ export function offerExtrasHtml(t: DocTemplate, v: Record<string, string>, fill:
   const h3 = (s: string) => `<div style="font-size:15px;font-weight:700;color:#1B3F8B;margin:0 0 8px">${s}</div>`;
   let out = '';
   if (t.annexA?.length) {
-    out += `<div style="break-before:page;page-break-before:always;padding-top:4px">${h3('Annexure A - Terms and Conditions')}`;
+    out += `</div><!-- page-break --><div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:12.5px"><div style="padding-top:4px">${h3('Annexure A - Terms and Conditions')}`;
     out += t.annexA.map((s, i) => `<div style="font-weight:700;margin:10px 0 3px">${i + 1}. ${fill(s.h)}</div><div style="line-height:1.6">${fill(s.p)}</div>`).join('');
     out += '</div>';
   }
@@ -36,7 +36,7 @@ export function offerExtrasHtml(t: DocTemplate, v: Record<string, string>, fill:
     const { monthly, annual, bonus, ctc } = salaryTotals(v);
     const td = 'border:1px solid #9AA6B8;padding:6px 10px';
     const rows = SALARY_ROWS.map(([label, k]) => `<tr><td style="${td}">${label}</td><td style="${td};text-align:right">${rs(n(v[k]))}</td><td style="${td};text-align:right">${rs(n(v[k]) * 12)}</td></tr>`).join('');
-    out += `<div style="break-before:page;page-break-before:always;padding-top:4px">${h3('Annexure B - Compensation Structure')}
+    out += `</div><!-- page-break --><div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:12.5px"><div style="padding-top:4px">${h3('Annexure B - Compensation Structure')}
 <div style="margin-bottom:8px">Your monthly and annual salary structure is given below.</div>
 <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#0B1A3A;color:#fff"><th style="${td};text-align:left">Components</th><th style="${td};text-align:right">Monthly (INR)</th><th style="${td};text-align:right">Annual (INR)</th></tr>
 ${rows}<tr><td style="${td}">Bonus (Annual)</td><td style="${td};text-align:right">-</td><td style="${td};text-align:right">${rs(bonus)}</td></tr>

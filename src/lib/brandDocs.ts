@@ -27,7 +27,13 @@ const CSS = `
 .pb,.pb *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pb{font-family:Arial,Helvetica,sans-serif;color:#0B1A3A;background:#fff;margin:0 auto;display:flex;flex-direction:column}
 .pb.land{width:297mm;min-height:200mm;padding:7mm 10mm 6mm}
-.pb.port{width:210mm;min-height:268mm;padding:0 12mm}
+.pb.port{width:210mm;min-height:297mm;padding:48mm 18mm 26mm 18mm;background:#fff url('/letterhead.webp') no-repeat top center/100% 100%;position:relative;box-sizing:border-box;margin:0 auto 20px;box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+.pb.port:last-child{margin-bottom:0}
+@media print{
+  @page{size:A4 portrait;margin:0}
+  body{margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pb.port{width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;margin:0 auto!important;box-shadow:none!important;page-break-after:always!important;break-after:page!important;overflow:hidden!important}
+}
 .pb-head{display:flex;align-items:flex-start;gap:14px}
 .pb-logo{height:31mm;width:auto;display:block}
 .port .pb-logo{height:25mm}
@@ -166,18 +172,29 @@ export function invoicePage(v: {
 
 // ---------------- LETTERS / DOCUMENT CENTER ----------------
 export function letterPage(innerHtml: string, ref: string, date: string) {
-  return `<div class="pb port">${head('', [['Ref No.', ref], ['Date', d8(date)]])}
-<div class="body">${innerHtml}</div><div class="spacer"></div>${footLine()}<div class="band">YOUR SUCCESS IS OUR PRIORITY</div></div>`;
+  const pages = innerHtml.split('<!-- page-break -->');
+  return pages.map((pageContent, idx) => {
+    const meta = (idx === 0 && (ref || date)) ? `
+<div class="lh-meta" style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#475569;border-bottom:1px solid #CBD5E1;padding-bottom:5px;margin-bottom:12px;">
+  <div>${ref ? `<b>Ref:</b> <span style="font-family:monospace;font-weight:600;color:#0F172A;">${esc(ref)}</span>` : ''}</div>
+  <div>${date ? `<b>Date:</b> <span style="color:#0F172A;">${esc(d8(date))}</span>` : ''}</div>
+</div>` : (idx > 0 && (ref || date)) ? `
+<div class="lh-meta" style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:#64748B;border-bottom:1px solid #E2E8F0;padding-bottom:4px;margin-bottom:12px;">
+  <div>${ref ? `<b>Ref:</b> <span style="font-family:monospace;">${esc(ref)}</span>` : ''}</div>
+  <div>Page ${idx + 1} of ${pages.length}</div>
+</div>` : '';
+    return `<div class="pb port">${meta}<div class="body" style="flex:1;">${pageContent}</div></div>`;
+  }).join('');
 }
 
 import { toast } from '../os/OsUi';
 
 export const brandDocHtml = (title: string, page: string, landscape: boolean) =>
-  `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:${landscape ? '0' : '12mm 0 12mm'}}html,body{margin:0;padding:0;background:#fff}${CSS}</style></head><body>${page}</body></html>`;
+  `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:0}html,body{margin:0;padding:0;background:#fff}${CSS}</style></head><body>${page}</body></html>`;
 
 export function openBrandDoc(title: string, page: string, landscape: boolean) {
   const w = window.open('', '_blank');
   if (!w) { toast('Please allow pop-ups for this site to print or save PDFs.', 'error'); return; }
-  w.document.write(brandDocHtml(title, page, landscape).replace('</body>', `<script>window.onload=function(){var p=document.querySelector('.pb'),H=${landscape ? 790 : 1040};if(p&&p.offsetHeight>H&&p.offsetHeight<H*1.25){p.style.zoom=String(H/p.offsetHeight)}setTimeout(function(){window.print()},400)}<\/script></body>`));
+  w.document.write(brandDocHtml(title, page, landscape).replace('</body>', `<script>window.onload=function(){var sheets=document.querySelectorAll('.pb'),H=${landscape ? 790 : 1040};sheets.forEach(function(p){if(p&&p.offsetHeight>H&&p.offsetHeight<H*1.25){p.style.zoom=String(H/p.offsetHeight)}});setTimeout(function(){window.print()},400)}<\/script></body>`));
   w.document.close();
 }

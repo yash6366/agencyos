@@ -1,4 +1,4 @@
-﻿// AGENCYOS_V5_P26: Enterprise spec screens (search, profile, CRM import/analytics/targets, service teams,
+// AGENCYOS_V5_P26: Enterprise spec screens (search, profile, CRM import/analytics/targets, service teams,
 // approval policy/history, report builder, retention) + simple record registers.
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -36,7 +36,7 @@ export const GlobalSearchPage: React.FC = () => {
   const t = q.trim().toLowerCase();
   const hits = t.length < 2 ? [] : sets.map((s) => ({ ...s, rows: s.rows.filter((r) => `${r.title} ${r.sub}`.toLowerCase().includes(t)).slice(0, 8) })).filter((s) => s.rows.length);
   return (<>
-    <div className="card panel"><div className="nav-search" style={{ margin: 0 }}><Icon name="search" size={16} /><input autoFocus placeholder="Type a name, phone, email, code (2+ letters)..." value={q} onChange={(e) => setQ(e.target.value)} /></div>
+    <div className="card panel"><div className="nav-search" style={{ margin: 0 }}><Icon name="search" size={16} /><input type="search" name="global_search_input" autoComplete="off" data-lpignore="true" autoFocus placeholder="Type a name, phone, email, code (2+ letters)..." value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <p className="muted" style={{ marginTop: 8 }}>Searches only what your role is allowed to see: {sets.map((s) => s.label).join(', ') || 'nothing'}.</p></div>
     <div className="columns equal" style={{ marginTop: 16 }}>{hits.map((s) => <Panel key={s.label} title={s.label} right={<span className="muted">{s.rows.length} match(es)</span>}>
       {s.rows.map((r) => <div key={r.id} className="list-row hover-link" onClick={() => open(s.tab, s.key, r.id)}><div><b>{r.title}</b><small>{r.sub}</small></div><Icon name="arrow" size={14} /></div>)}</Panel>)}</div>

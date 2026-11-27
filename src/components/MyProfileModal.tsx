@@ -568,7 +568,18 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                 </div>
               </div>
 
-              <form onSubmit={handleChangePassword} style={{ display: 'grid', gap: '14px' }}>
+              <form onSubmit={handleChangePassword} autoComplete="off" style={{ display: 'grid', gap: '14px' }}>
+                {/* Hidden username input prevents browser password managers from misidentifying outside inputs */}
+                <input
+                  type="text"
+                  name="username"
+                  value={currentUser.email || currentUser.employeeId}
+                  autoComplete="username"
+                  style={{ display: 'none' }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  readOnly
+                />
                 <h4 style={{ margin: '0', fontSize: '13px', fontWeight: 750, color: '#0B1738' }}>Change Account Password</h4>
 
                 {pwSuccess && (
@@ -588,6 +599,10 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                   </label>
                   <input
                     type="password"
+                    name="profile-current-password"
+                    autoComplete="new-password"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     required
@@ -603,6 +618,10 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     </label>
                     <input
                       type="password"
+                      name="profile-new-password"
+                      autoComplete="new-password"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
@@ -616,6 +635,10 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     </label>
                     <input
                       type="password"
+                      name="profile-confirm-password"
+                      autoComplete="new-password"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required

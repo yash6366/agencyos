@@ -1,4 +1,4 @@
-﻿// AGENCYOS_V5_P26: Enterprise spec - extra roles, extra screens, approval policy (Rs 5,000 rule)
+// AGENCYOS_V5_P26: Enterprise spec - extra roles, extra screens, approval policy (Rs 5,000 rule)
 import { readKey } from '../lib/sharedStore';
 import { PAGES, NAV_GROUPS, OS_ROLES, DEFAULT_MATRIX, ROLE_PAGES, STAFF_ROLES, EVERYONE, M, FULL_ACCESS, OsPage } from './osConfig';
 
@@ -22,7 +22,7 @@ const after = (anchor: string, ...ps: OsPage[]) => {
 const W = 'Workspace', C = 'CRM & Sales', CL = 'Clients & Services', O = 'Operations', D = 'Service Delivery', H = 'People & HR', DC = 'Document Center', R = 'Reports', A = 'Administration';
 if (!NAV_GROUPS.find((g) => g.key === D)) NAV_GROUPS.splice(NAV_GROUPS.findIndex((g) => g.key === O) + 1, 0, { key: D, icon: 'layers' });
 
-after('calendar', pg('global-search', 'Global Search', 'Search leads, clients, projects, tasks, invoices, people and documents you can access.', W, 'grid', null), pg('my-profile', 'My Profile & Sessions', 'Your details, password, sign-in history and active sessions.', W, 'grid', null));
+after('calendar', pg('my-profile', 'My Profile & Sessions', 'Your details, password, sign-in history and active sessions.', W, 'grid', null));
 after('approvals', pg('exceptions', 'Exception & Override Register', 'Every founder exception and override with reason and expiry.', W, 'grid', M.APP), pg('approval-history', 'Approval History', 'Every approval and rejection with who, when and why.', W, 'grid', M.APP));
 after('leads', pg('lead-import', 'Lead Creation / Import', 'Add one lead or import many from CSV with duplicate check and auto-assignment.', C, 'target', M.CRM));
 after('followups', pg('calls', 'Calls & Activities', 'Calls, meetings, WhatsApp and email activity log per lead and client.', C, 'target', M.CRM));

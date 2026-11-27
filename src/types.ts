@@ -197,7 +197,7 @@ export interface DailyActivity {
   createdAt: string;
 }
 
-export type LeadStatus = 'new' | 'assigned' | 'contacted' | 'follow_up' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
+export type LeadStatus = 'new' | 'assigned' | 'contacted' | 'follow_up' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'converted';
 
 export interface Lead {
   id: string;

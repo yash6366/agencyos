@@ -36,14 +36,58 @@ const ChangePassword: React.FC<{ onDone?: () => void; forced?: boolean }> = ({ o
     onDone?.();
   };
   return (
-    <div className="space-y-3 max-w-sm">
+    <form onSubmit={(e) => { e.preventDefault(); save(); }} autoComplete="off" className="space-y-3 max-w-sm">
+      {/* Hidden username input prevents password managers from misinterpreting outside inputs (e.g. sidebar search) */}
+      <input
+        type="text"
+        name="username"
+        value={currentUser.email || currentUser.employeeId}
+        autoComplete="username"
+        style={{ display: 'none' }}
+        tabIndex={-1}
+        aria-hidden="true"
+        readOnly
+      />
       {forced && <p className="text-xs text-amber-600 font-semibold">You are using a temporary password. Please set your own password now.</p>}
-      <Field label="Current password"><input type="password" className={inputCls} value={f.cur} onChange={(e) => setF({ ...f, cur: e.target.value })} /></Field>
-      <Field label="New password (8+ characters, letters and numbers)"><input type="password" className={inputCls} value={f.nw} onChange={(e) => setF({ ...f, nw: e.target.value })} /></Field>
-      <Field label="Confirm new password"><input type="password" className={inputCls} value={f.cf} onChange={(e) => setF({ ...f, cf: e.target.value })} /></Field>
+      <Field label="Current password">
+        <input
+          type="password"
+          name="current-password"
+          autoComplete="new-password"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          className={inputCls}
+          value={f.cur}
+          onChange={(e) => setF({ ...f, cur: e.target.value })}
+        />
+      </Field>
+      <Field label="New password (8+ characters, letters and numbers)">
+        <input
+          type="password"
+          name="new-password"
+          autoComplete="new-password"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          className={inputCls}
+          value={f.nw}
+          onChange={(e) => setF({ ...f, nw: e.target.value })}
+        />
+      </Field>
+      <Field label="Confirm new password">
+        <input
+          type="password"
+          name="confirm-new-password"
+          autoComplete="new-password"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          className={inputCls}
+          value={f.cf}
+          onChange={(e) => setF({ ...f, cf: e.target.value })}
+        />
+      </Field>
       {msg && <p className="text-xs font-semibold text-blue-600">{msg}</p>}
-      <button className={btnPrimary} onClick={save}>Change password</button>
-    </div>
+      <button type="submit" className={btnPrimary}>Change password</button>
+    </form>
   );
 };
 
@@ -110,7 +154,16 @@ export const AccessAdmin: React.FC = () => {
       {tab === 'users' && resetter && (
         <div className={card}>
           <AddUserPanel onDone={setMsg} />
-          <input className={`${inputCls} max-w-xs mb-3`} placeholder="Search name / ID / email" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input
+            type="search"
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore="true"
+            className={`${inputCls} max-w-xs mb-3`}
+            placeholder="Search name / ID / email"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
           <div className="overflow-x-auto"><table className="w-full">
             <thead><tr><th className={th}>Employee</th><th className={th}>Login</th><th className={th}>Role</th><th className={th}>Status</th><th className={th}>Password</th><th className={th}>Last login</th><th className={th}>Actions</th></tr></thead>
             <tbody>{employees.filter((e) => !q || `${e.name} ${e.employeeId} ${e.email}`.toLowerCase().includes(q.toLowerCase())).map((e) => {
@@ -151,7 +204,18 @@ export const AccessAdmin: React.FC = () => {
 
       {tab === 'history' && (
         <div className={card}>
-          {resetter && <input className={`${inputCls} max-w-xs mb-3`} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />}
+          {resetter && (
+            <input
+              type="search"
+              autoComplete="off"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              className={`${inputCls} max-w-xs mb-3`}
+              placeholder="Search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          )}
           {visibleHistory.length === 0 ? <Empty text="No logins recorded yet." /> : (
             <table className="w-full"><thead><tr><th className={th}>When</th><th className={th}>User</th><th className={th}>Role</th><th className={th}>Login page</th><th className={th}>Result</th></tr></thead>
               <tbody>{visibleHistory.slice(0, 300).map((h) => (

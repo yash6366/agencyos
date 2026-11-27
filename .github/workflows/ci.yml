@@ -31,7 +31,7 @@ jobs:
         run: npm run lint
 
       - name: Run automated test suite
-        run: node --import tsx --test tests/*.test.ts
+        run: npm test
 
       - name: Build production bundle
         run: npm run build

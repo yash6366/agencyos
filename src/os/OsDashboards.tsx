@@ -46,10 +46,65 @@ export const FounderDashboard: React.FC = () => {
 
   return (<>
     <div className="kpis">
-      <Kpi name="Collections" value={inrS(coll)} desc="Verified this month" icon="money" trend={trend} />
-      <Kpi name="Outstanding" value={inrS(out)} desc={`${invoices.filter((i) => (i.balanceAmount || 0) > 0).length} pending invoice(s)`} icon="receipt" />
-      <Kpi name="Critical Problems" value={String(crit.length).padStart(2, '0')} desc={`${alerts.length} total active issue(s)`} icon="bell" />
-      <Kpi name="Active Projects" value={String(active.length).padStart(2, '0')} desc="Across delivery teams" icon="briefcase" />
+      <div className="card kpi group hover-link" onClick={() => setActiveTab('finance_desk')} style={{ cursor: 'pointer' }}>
+        <div className="kpi-top">
+          <span className="kpi-name">Collections</span>
+          <span className="icon-tile" aria-hidden="true">
+            <Icon name="money" size={17} />
+          </span>
+        </div>
+        <div className="kpi-value tabular-nums">{inrS(coll)}</div>
+        <div className="kpi-footer">
+          {trend && (
+            <span className={`trend-badge ${trend.startsWith('-') ? 'trend-down' : 'trend-up'}`}>
+              <Icon name={trend.startsWith('-') ? 'trendDown' : 'trendUp'} size={12} />
+              <span>{trend}</span>
+            </span>
+          )}
+          <span className="kpi-desc">Verified this month</span>
+        </div>
+      </div>
+
+      <div className="card kpi group hover-link" onClick={() => setActiveTab('invoices')} style={{ cursor: 'pointer' }}>
+        <div className="kpi-top">
+          <span className="kpi-name">Outstanding</span>
+          <span className="icon-tile" aria-hidden="true">
+            <Icon name="receipt" size={17} />
+          </span>
+        </div>
+        <div className="kpi-value tabular-nums">{inrS(out)}</div>
+        <div className="kpi-footer">
+          <span className="kpi-desc">{invoices.filter((i) => (i.balanceAmount || 0) > 0).length} pending invoice(s)</span>
+        </div>
+      </div>
+
+      <div className="card kpi group hover-link" onClick={() => setActiveTab('alerts')} style={{ cursor: 'pointer' }}>
+        <div className="kpi-top">
+          <span className="kpi-name">Critical Problems</span>
+          <span className="icon-tile" aria-hidden="true" style={{ background: crit.length ? '#FEF2F2' : '#F1F5F9', color: crit.length ? '#B91C1C' : '#0B1738' }}>
+            <Icon name="bell" size={17} />
+          </span>
+        </div>
+        <div className="kpi-value tabular-nums" style={{ color: crit.length ? '#B91C1C' : 'var(--navy)' }}>
+          {String(crit.length).padStart(2, '0')}
+        </div>
+        <div className="kpi-footer">
+          <span className="kpi-desc">{alerts.length} total active issue(s)</span>
+        </div>
+      </div>
+
+      <div className="card kpi group hover-link" onClick={() => setActiveTab('projects')} style={{ cursor: 'pointer' }}>
+        <div className="kpi-top">
+          <span className="kpi-name">Active Projects</span>
+          <span className="icon-tile" aria-hidden="true">
+            <Icon name="briefcase" size={17} />
+          </span>
+        </div>
+        <div className="kpi-value tabular-nums">{String(active.length).padStart(2, '0')}</div>
+        <div className="kpi-footer">
+          <span className="kpi-desc">Across delivery teams</span>
+        </div>
+      </div>
     </div>
 
     <div className="columns thirds">
