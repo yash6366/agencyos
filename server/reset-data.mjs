@@ -9,17 +9,12 @@
 //   Check only : node server/reset-data.mjs
 //   Really do it: node server/reset-data.mjs --yes
 import 'dotenv/config';
-import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
+import { pool } from './db.mjs';
 
 const E = process.env;
 const DO_IT = process.argv.includes('--yes');
-const USE_SSL = /^(1|true|yes|require)$/i.test(E.DB_SSL || '') || /supabase/i.test((E.DATABASE_URL || '') + (E.DB_HOST || ''));
-const SSL = USE_SSL ? { rejectUnauthorized: false } : undefined;
-const DB = { host: E.DB_HOST || 'localhost', port: Number(E.DB_PORT || 5432), user: E.DB_USER || 'postgres', password: E.DB_PASSWORD || '', database: E.DB_NAME || 'agencyos' };
-if (!E.DATABASE_URL && !E.DB_PASSWORD) { console.error('Database settings missing in .env'); process.exit(1); }
-const pool = new pg.Pool(E.DATABASE_URL && !E.DB_PASSWORD ? { connectionString: E.DATABASE_URL.replace(/[?&]sslmode=[^&]*/, ''), ssl: SSL, max: 2 } : { ...DB, ssl: SSL, max: 2 });
 
 // tables that are wiped completely
 const WIPE_TABLES = ['leads', 'clients', 'projects', 'tasks', 'quotations', 'agreements', 'invoices', 'payments', 'expenses',

@@ -15,7 +15,12 @@ import { convertLead } from './services/leadService.mjs';
 import { createInvoice, calculateInvoiceTotals } from './services/invoiceService.mjs';
 import { calculateServerPayslip } from './services/payrollCalculator.mjs';
 import { verifyMetaWebhookSignature } from './services/webhookService.mjs';
+import { createDistributedRateLimiter, getClientIp } from './services/rateLimiter.mjs';
+import { savePersistentFile, getPersistentFile, deletePersistentFile } from './services/fileStorageService.mjs';
+import { sendEmail } from './services/emailService.mjs';
 import { runMigrations } from './migrate.mjs';
+
+import { pool, getDbDiagnostics } from './db.mjs';
 
 import { createRequire } from 'module';
 const D = createRequire(import.meta.url)('./defaults.json'); // AGENCYOS_VERCEL
@@ -24,7 +29,6 @@ const PORT = Number(process.env.PORT || 4000);
 const SECRET = process.env.JWT_SECRET || '';
 // AGENCYOS_SERVER_STATUS
 const E = process.env;
-const DB = { host: E.DB_HOST || 'localhost', port: Number(E.DB_PORT || 5432), user: E.DB_USER || 'postgres', password: E.DB_PASSWORD || '', database: E.DB_NAME || 'agencyos' };
 const PROBLEMS = [];
 if (!E.DATABASE_URL && !E.DB_PASSWORD) { PROBLEMS.push('DATABASE_URL is missing (Vercel > Settings > Environment Variables, then Redeploy)'); console.error('Database settings missing in .env (DATABASE_URL or DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)'); if (!E.VERCEL) process.exit(1); }
 const STARTED = Date.now();
@@ -33,21 +37,7 @@ if (E.TOKEN_ENCRYPTION_KEY && E.TOKEN_ENCRYPTION_KEY.length < 16) {
   PROBLEMS.push('TOKEN_ENCRYPTION_KEY is shorter than 16 characters');
   console.warn('Security notice: TOKEN_ENCRYPTION_KEY should be at least 32 characters for robust AES-256 key derivation');
 }
-// AGENCYOS_SUPABASE: SSL for cloud databases (DB_SSL=true, or automatic for supabase.com)
-const USE_SSL = /^(1|true|yes|require)$/i.test(E.DB_SSL || '') || /supabase/i.test((E.DATABASE_URL || '') + (E.DB_HOST || ''));
-const SSL = USE_SSL ? { rejectUnauthorized: false } : undefined;
-const poolConfig = E.DATABASE_URL && !E.DB_PASSWORD
-  ? { connectionString: E.DATABASE_URL.replace(/[?&]sslmode=[^&]*/, ''), ssl: SSL, max: E.VERCEL ? 2 : 10 }
-  : { ...DB, ssl: SSL, max: E.VERCEL ? 2 : 10 };
-const pool = new pg.Pool({
-  ...poolConfig,
-  idleTimeoutMillis: E.VERCEL ? 1000 : 30000,
-  connectionTimeoutMillis: E.VERCEL ? 4000 : 10000,
-});
-pool.on('error', (err) => {
-  console.warn('PostgreSQL pool background notice:', err.message);
-});
-const dbInfo = () => { if (E.DATABASE_URL && !E.DB_PASSWORD) { try { const u = new URL(E.DATABASE_URL); return { host: u.hostname, port: u.port || '5432', user: decodeURIComponent(u.username), database: u.pathname.slice(1) }; } catch { return {}; } } return { host: DB.host, port: DB.port, user: DB.user, database: DB.database }; };
+const dbInfo = () => getDbDiagnostics();
 export const KNOWN_DEFAULT_PASSWORDS = [
   process.env.INITIAL_ADMIN_PASSWORD,
   'Welcome@123',
@@ -185,6 +175,44 @@ async function auth(req, res, next) {
 // ---------------------------------------------------------------- app
 const app = express();
 
+// In-memory sliding window rate limiter for general API & auth endpoints
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 120; // 120 req/min for general API
+const MAX_AUTH_REQUESTS_PER_WINDOW = 15; // 15 req/min for auth routes
+
+function applyRateLimit(limit = MAX_REQUESTS_PER_WINDOW) {
+  return (req, res, next) => {
+    const key = `${ip(req)}_${req.path}`;
+    const now = Date.now();
+    const clientData = rateLimitMap.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+
+    if (now > clientData.resetAt) {
+      clientData.count = 0;
+      clientData.resetAt = now + RATE_LIMIT_WINDOW_MS;
+    }
+
+    clientData.count++;
+    rateLimitMap.set(key, clientData);
+
+    // Housekeeping: purge entries older than 2 hours periodically
+    if (rateLimitMap.size > 10000) {
+      for (const [k, v] of rateLimitMap.entries()) {
+        if (now > v.resetAt) rateLimitMap.delete(k);
+      }
+    }
+
+    res.setHeader('X-RateLimit-Limit', limit);
+    res.setHeader('X-RateLimit-Remaining', Math.max(0, limit - clientData.count));
+    res.setHeader('X-RateLimit-Reset', Math.ceil(clientData.resetAt / 1000));
+
+    if (clientData.count > limit) {
+      return res.status(429).json({ error: 'Too many requests. Please slow down and try again later.' });
+    }
+    next();
+  };
+}
+
 // P1-01 & P1-02: Security Headers & Explicit CORS Configuration
 app.use((req, res, next) => {
   const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000').split(',').map(s => s.trim());
@@ -213,6 +241,10 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: '25mb' }));
+// Distributed rate limiter (PostgreSQL backed with in-memory fallback)
+app.use('/api', createDistributedRateLimiter(pool, { limit: 120, windowMs: 60000, prefix: 'api' }));
+app.use('/api/auth/login', createDistributedRateLimiter(pool, { limit: 15, windowMs: 60000, prefix: 'auth_login' }));
+app.use('/api/setup/import', createDistributedRateLimiter(pool, { limit: 15, windowMs: 60000, prefix: 'auth_import' }));
 app.set('trust proxy', 1); // Specific proxy hop trust
 const OPEN = ['/', '/api', '/api/server', '/api/status', '/api/health'];
 
@@ -308,18 +340,6 @@ app.get('/api/health', async (_req, res) => {
 });
 
 app.get('/api/status', async (_q, res) => res.json(await status()));
-app.get(['/', '/api', '/api/server'], async (_q, res) => {
-  const s = await status(); const ok = s.db.connected;
-  const row = (k, v) => '<tr><td>' + esc(k) + '</td><td><b>' + esc(v) + '</b></td></tr>';
-  res.send('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="10"><title>AgencyOS Server</title><style>body{margin:0;background:#F8F9FB;font:14px Inter,Segoe UI,Arial;color:#111827}main{max-width:900px;margin:32px auto;padding:0 16px}.card{background:#fff;border:1px solid #E5E7EB;border-radius:13px;padding:20px;margin-bottom:16px}h1{color:#0B1738;margin:0 0 4px;font-size:22px}.mark{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#0B1738;color:#fff;font-weight:800;margin-right:10px;vertical-align:middle}.pill{display:inline-block;padding:5px 11px;border-radius:999px;font-weight:700;font-size:12px}.g{background:#E6F6EF;color:#087F59}.r{background:#FEEDEC;color:#B42318}table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid #F1F2F5;text-align:left;font-size:13px}th{background:#FAFBFC;color:#667085;font-size:11px;text-transform:uppercase}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:700px){.grid{grid-template-columns:1fr}}small{color:#667085}</style></head><body><main>'
-    + '<div class="card"><h1><span class="mark">P</span>AgencyOS Server</h1><small>Priority Ads Agency \u00B7 this page refreshes every 10 seconds</small><p><span class="pill g">\u25CF Server running on port ' + esc(s.port) + '</span> <span class="pill ' + (ok ? 'g' : 'r') + '">' + (ok ? '\u25CF PostgreSQL connected' : '\u25CF PostgreSQL NOT connected') + '</span></p>'
-    + (ok ? '' : '<p style="color:#B42318"><b>Database error:</b> ' + esc(s.db.error) + '<br>Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD and DB_NAME in the .env file, then restart the server.</p>') + '</div>'
-    + '<div class="grid"><div class="card"><b>Server</b><table>' + row('Status', 'Running') + row('Address', 'http://localhost:' + s.port) + row('Started', s.startedAt) + row('Running for', s.uptimeMin + ' min') + row('Website', 'http://localhost:3000') + '</table></div>'
-    + '<div class="card"><b>PostgreSQL database</b><table>' + row('Connected', ok ? 'Yes' : 'No') + row('Database', s.db.database) + row('Host', s.db.host + ':' + s.db.port) + row('User', s.db.user) + row('Provider', /supabase/i.test(String(s.db.host)) ? 'Supabase (cloud)' : 'PostgreSQL on this computer') + row('SSL', USE_SSL ? 'On' : 'Off') + row('Version', s.db.version || '-') + row('Size', s.db.size || '-') + row('People signed in', s.activeSessions ?? '-') + row('Last change', s.lastChange ? s.lastChange.store + ' by ' + s.lastChange.by + ' at ' + s.lastChange.at : '-') + '</table></div></div>'
-    + (s.tables ? '<div class="card"><b>Tables in ' + esc(s.db.database) + '</b> <small>(' + s.tables.length + ' tables, ' + s.tables.reduce((a, t) => a + t.rows, 0) + ' rows)</small><table><tr><th>Table</th><th>Rows</th></tr>' + s.tables.map((t) => '<tr><td>' + esc(t.name) + '</td><td>' + t.rows + '</td></tr>').join('') + '</table></div>' : '')
-    + '<small>JSON: <a href="/api/status">/api/status</a> \u00B7 Password is never shown here.</small></main></body></html>');
-});
-app.get('/api/health', async (_q, res) => { try { await pool.query('SELECT 1'); res.json({ ok: true, db: true }); } catch (e) { res.status(500).json({ ok: false, error: String(e.message) }); } });
 app.get('/api/setup/status', async (_q, res) => {
   try {
     const empCount = (await pool.query('SELECT count(*)::int n FROM employees')).rows[0].n;
@@ -1318,6 +1338,17 @@ app.post('/api/leads/:id/convert', auth, async (req, res) => {
   }
 });
 
+// Authoritative Invoice Totals & GST Calculation endpoint
+app.post('/api/invoices/calculate', auth, (req, res) => {
+  try {
+    const { items = [], discount = 0, agencyState = '29', clientState = '29' } = req.body || {};
+    const totals = calculateInvoiceTotals(items, discount, agencyState, clientState);
+    res.json({ ok: true, ...totals });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Server-Authoritative Invoice Creation
 app.post('/api/invoices', auth, async (req, res) => {
   if (req.u.role !== 'super_admin' && !(await can(req.u.role, M.FIN, 'C'))) {
@@ -1338,6 +1369,61 @@ app.post('/api/payroll/calculate', auth, async (req, res) => {
   }
   try {
     const result = calculateServerPayslip(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------- centralized persistent file storage
+app.post('/api/files/upload', auth, async (req, res) => {
+  try {
+    const { filename, mimeType, base64 } = req.body || {};
+    if (!base64 || !filename) {
+      return res.status(400).json({ error: 'Missing required file data (filename and base64 string required).' });
+    }
+    const cleanBase64 = base64.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    const saved = await savePersistentFile(pool, { filename, mimeType, buffer }, req.u.id);
+    res.json({ ok: true, file: saved });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/files/:id', auth, async (req, res) => {
+  try {
+    const file = await getPersistentFile(pool, req.params.id);
+    if (!file) return res.status(404).json({ error: 'File not found.' });
+
+    if (file.content) {
+      res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${file.filename}"`);
+      res.setHeader('Content-Length', file.size);
+      res.send(file.content);
+    } else if (file.url) {
+      res.redirect(file.url);
+    } else {
+      res.status(404).json({ error: 'File content unavailable.' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/files/:id', auth, async (req, res) => {
+  try {
+    const deleted = await deletePersistentFile(pool, req.params.id, req.u.id);
+    res.json({ ok: deleted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------- transactional email delivery
+app.post('/api/notifications/send-email', auth, async (req, res) => {
+  try {
+    const result = await sendEmail(pool, req.body);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });

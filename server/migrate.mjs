@@ -8,6 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { pool } from './db.mjs';
+export { pool };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,32 +18,6 @@ const require = createRequire(import.meta.url);
 const D = require('./defaults.json');
 const M = D.M;
 const E = process.env;
-
-const DB = {
-  host: E.DB_HOST || 'localhost',
-  port: Number(E.DB_PORT || 5432),
-  user: E.DB_USER || 'postgres',
-  password: E.DB_PASSWORD || '',
-  database: E.DB_NAME || 'agencyos',
-};
-
-if (!E.DATABASE_URL && !E.DB_PASSWORD) {
-  console.error('Database configuration missing in .env (Provide DATABASE_URL or DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)');
-  process.exit(1);
-}
-
-const USE_SSL = /^(1|true|yes|require)$/i.test(E.DB_SSL || '') || /supabase/i.test((E.DATABASE_URL || '') + (E.DB_HOST || ''));
-const SSL = USE_SSL ? { rejectUnauthorized: false } : undefined;
-
-const poolConfig = E.DATABASE_URL && !E.DB_PASSWORD
-  ? { connectionString: E.DATABASE_URL.replace(/[?&]sslmode=[^&]*/, ''), ssl: SSL, max: 2 }
-  : { ...DB, ssl: SSL, max: 2 };
-
-export const pool = new pg.Pool({
-  ...poolConfig,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 10000,
-});
 
 export const T = {
   paa_employees: { t: 'employees', cols: [['employee_code', 'employeeId'], ['name', 'name'], ['email', 'email'], ['phone', 'phone'], ['role', 'role'], ['status', 'status']], mod: M.HR, alt: M.PAY },

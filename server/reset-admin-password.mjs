@@ -6,30 +6,10 @@
 //   node server/reset-admin-password.mjs Welcome@123 rajesh.sharma@priorityadsagency.com
 
 import 'dotenv/config';
-import pg from 'pg';
 import bcrypt from 'bcryptjs';
+import { pool } from './db.mjs';
 
 const E = process.env;
-const USE_SSL = /^(1|true|yes|require)$/i.test(E.DB_SSL || '') || /supabase/i.test((E.DATABASE_URL || '') + (E.DB_HOST || ''));
-const SSL = USE_SSL ? { rejectUnauthorized: false } : undefined;
-const DB = {
-  host: E.DB_HOST || 'localhost',
-  port: Number(E.DB_PORT || 5432),
-  user: E.DB_USER || 'postgres',
-  password: E.DB_PASSWORD || '',
-  database: E.DB_NAME || 'agencyos'
-};
-
-if (!E.DATABASE_URL && !E.DB_PASSWORD) {
-  console.error('Error: Database connection settings missing in .env (DATABASE_URL or DB_* credentials required).');
-  process.exit(1);
-}
-
-const pool = new pg.Pool(
-  E.DATABASE_URL && !E.DB_PASSWORD
-    ? { connectionString: E.DATABASE_URL.replace(/[?&]sslmode=[^&]*/, ''), ssl: SSL, max: 2 }
-    : { ...DB, ssl: SSL, max: 2 }
-);
 
 const targetPassword = process.argv[2] || process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
 const targetEmail = (process.argv[3] || process.env.INITIAL_ADMIN_EMAIL || 'rajesh.sharma@priorityadsagency.com').trim().toLowerCase();

@@ -241,9 +241,9 @@ export async function seedDatabase(targetPool = pool) {
       const dept = DEPARTMENTS[i];
       await client.query(
         `INSERT INTO public.departments (id, name, data, pos, updated_by)
-         VALUES ($1, $2, $3, $4, 'seed')
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, data = EXCLUDED.data`,
-        [dept.id, dept.name, dept, i]
+        [dept.id, dept.name, dept, i, 'seed']
       );
     }
 
@@ -252,9 +252,9 @@ export async function seedDatabase(targetPool = pool) {
       const desig = DESIGNATIONS[i];
       await client.query(
         `INSERT INTO public.designations (id, title, department_id, data, pos, updated_by)
-         VALUES ($1, $2, $3, $4, 'seed')
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, department_id = EXCLUDED.department_id, data = EXCLUDED.data`,
-        [desig.id, desig.title, desig.departmentId, desig, i]
+        [desig.id, desig.title, desig.departmentId, desig, i, 'seed']
       );
     }
 
@@ -266,9 +266,9 @@ export async function seedDatabase(targetPool = pool) {
       const emp = BASE_EMPLOYEES[i];
       await client.query(
         `INSERT INTO public.employees (id, employee_code, name, email, phone, role, status, data, pos, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'seed')
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO UPDATE SET employee_code = EXCLUDED.employee_code, name = EXCLUDED.name, email = EXCLUDED.email, role = EXCLUDED.role, data = EXCLUDED.data`,
-        [emp.id, emp.employeeId, emp.name, emp.email, emp.phone, emp.role, emp.status, emp, i]
+        [emp.id, emp.employeeId, emp.name, emp.email, emp.phone, emp.role, emp.status, emp, i, 'seed']
       );
 
       // Seed credentials
