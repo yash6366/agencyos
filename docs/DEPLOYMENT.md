@@ -19,7 +19,7 @@ TOKEN_ENCRYPTION_KEY=your_32_byte_token_encryption_key_for_integrations
 
 # Optional Initial Super Admin Credentials (used during db:seed)
 INITIAL_ADMIN_EMAIL=rajesh.sharma@priorityadsagency.com
-INITIAL_ADMIN_PASSWORD=YourStrongInitialAdminPassword123!
+INITIAL_ADMIN_PASSWORD=change_this_to_a_complex_initial_password
 
 # Server Port
 PORT=4000
@@ -99,7 +99,7 @@ AgencyOS includes full serverless configuration in `vercel.json` and API proxies
    - `DATABASE_URL`
    - `DB_SSL=true`
    - `JWT_SECRET`
-   - `INITIAL_ADMIN_PASSWORD` (defaults to `Welcome@123` if not provided)
+   - `INITIAL_ADMIN_PASSWORD` (secure administrator password set by system administrator)
    - `INITIAL_ADMIN_EMAIL` (defaults to `rajesh.sharma@priorityadsagency.com`)
    - `JWT_SECRET`
    - `TOKEN_ENCRYPTION_KEY`

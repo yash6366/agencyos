@@ -15,7 +15,17 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, T } from './migrate.mjs';
 
-const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
+const generateSecureInitialPassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*';
+  let pw = '';
+  const bytes = crypto.randomBytes(16);
+  for (let i = 0; i < 16; i++) {
+    pw += chars[bytes[i] % chars.length];
+  }
+  return pw + 'A1!';
+};
+
+const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || generateSecureInitialPassword();
 const ADMIN_EMAIL = process.env.INITIAL_ADMIN_EMAIL || 'rajesh.sharma@priorityadsagency.com';
 
 const DEPARTMENTS = [

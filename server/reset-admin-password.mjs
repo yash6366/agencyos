@@ -3,15 +3,26 @@
 // Usage:
 //   node server/reset-admin-password.mjs [new_password] [admin_email]
 // Example:
-//   node server/reset-admin-password.mjs Welcome@123 rajesh.sharma@priorityadsagency.com
+//   node server/reset-admin-password.mjs <new_password> rajesh.sharma@priorityadsagency.com
 
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { pool } from './db.mjs';
 
 const E = process.env;
 
-const targetPassword = process.argv[2] || process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
+const generateSecureTempPassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*';
+  let pw = '';
+  const bytes = crypto.randomBytes(16);
+  for (let i = 0; i < 16; i++) {
+    pw += chars[bytes[i] % chars.length];
+  }
+  return pw + 'A1!';
+};
+
+const targetPassword = process.argv[2] || process.env.INITIAL_ADMIN_PASSWORD || generateSecureTempPassword();
 const targetEmail = (process.argv[3] || process.env.INITIAL_ADMIN_EMAIL || 'rajesh.sharma@priorityadsagency.com').trim().toLowerCase();
 
 async function run() {

@@ -196,6 +196,10 @@ export const MyProfileModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="My Profile & Sessions"
+      className="modal-overlay profile-modal-backdrop"
       style={{
         position: 'fixed',
         inset: 0,

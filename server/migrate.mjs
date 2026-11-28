@@ -94,6 +94,9 @@ export async function runMigrations(targetPool = pool) {
     await client.query(`CREATE TABLE IF NOT EXISTS public.user_credentials (employee_id text PRIMARY KEY, password_hash text NOT NULL, must_change boolean NOT NULL DEFAULT true, updated_at timestamptz NOT NULL DEFAULT now(), updated_by text);`);
     await client.query(`CREATE TABLE IF NOT EXISTS public.sessions (id text PRIMARY KEY, employee_id text NOT NULL, ip text, user_agent text, created_at timestamptz NOT NULL DEFAULT now(), last_seen timestamptz NOT NULL DEFAULT now(), revoked_at timestamptz);`);
     await client.query(`CREATE TABLE IF NOT EXISTS public.login_events (id bigserial PRIMARY KEY, employee_id text, login text, ok boolean NOT NULL, reason text, ip text, user_agent text, at timestamptz NOT NULL DEFAULT now());`);
+    await client.query(`CREATE TABLE IF NOT EXISTS public.password_reset_tokens (id bigserial PRIMARY KEY, employee_id text NOT NULL, token_hash text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL, used_at timestamptz, created_by_ip text, user_agent text);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS password_reset_tokens_employee_id_idx ON public.password_reset_tokens (employee_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS password_reset_tokens_token_hash_idx ON public.password_reset_tokens (token_hash);`);
     await client.query(`CREATE TABLE IF NOT EXISTS public.sync_events (id bigserial PRIMARY KEY, store text NOT NULL, by_employee text, at timestamptz NOT NULL DEFAULT now());`);
     await client.query(`CREATE TABLE IF NOT EXISTS public.deleted_records (id bigserial PRIMARY KEY, store text NOT NULL, record_id text NOT NULL, data jsonb, deleted_by text, deleted_at timestamptz NOT NULL DEFAULT now());`);
 

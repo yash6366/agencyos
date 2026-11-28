@@ -40,10 +40,8 @@ if (E.TOKEN_ENCRYPTION_KEY && E.TOKEN_ENCRYPTION_KEY.length < 16) {
 const dbInfo = () => getDbDiagnostics();
 export const KNOWN_DEFAULT_PASSWORDS = [
   process.env.INITIAL_ADMIN_PASSWORD,
-  'Welcome@123',
-  'YourStrongInitialAdminPassword123!',
 ].filter(Boolean);
-export const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'Welcome@123';
+export const DEFAULT_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || '';
 export function isValidPassword(p) {
   if (!p || typeof p !== 'string' || p.length < 8) return false;
   const hasUpper = /[A-Z]/.test(p);
@@ -155,9 +153,71 @@ async function upsertTable(client, key, rec, pos, by) {
 }
 const stripSalary = (e) => { const { salary, bankDetails, bank, pan, aadhaar, ...rest } = e; return rest; };
 
+function parseCookies(cookieHeader) {
+  const list = {};
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach((cookie) => {
+    let [name, ...rest] = cookie.split('=');
+    name = name?.trim();
+    if (!name) return;
+    const value = rest.join('=').trim();
+    if (!value) return;
+    try {
+      list[name] = decodeURIComponent(value);
+    } catch {
+      list[name] = value;
+    }
+  });
+  return list;
+}
+
 async function auth(req, res, next) {
   try {
-    const tok = (req.headers.authorization || '').replace(/^Bearer /, '');
+    const headerTok = (req.headers.authorization || '').replace(/^Bearer /, '').trim();
+    const cookieTok = req.cookies?.paa_session?.trim();
+    const tok = headerTok || cookieTok;
+    if (!tok) return res.status(401).json({ error: 'Please sign in.' });
+
+    // CSRF Protection: If authenticated via cookie alone on state-changing requests, verify origin
+    if (!headerTok && cookieTok && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      let origin = req.headers.origin || null;
+      if (!origin && req.headers.referer) {
+        try {
+          origin = new URL(req.headers.referer).origin;
+        } catch {
+          origin = null;
+        }
+      }
+
+      const host = req.headers.host;
+      const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
+        .split(',')
+        .map((s) => s.trim().toLowerCase());
+
+      let isAllowed = false;
+      if (origin) {
+        try {
+          const originUrl = new URL(origin);
+          if (originUrl.host === host || allowedOrigins.includes(origin.toLowerCase())) {
+            isAllowed = true;
+          }
+        } catch {
+          isAllowed = false;
+        }
+      } else {
+        // Missing Origin & Referer: only allowed in non-production loopback (CLI/scripts)
+        const clientIp = ip(req);
+        const isLoopback = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === 'localhost' || clientIp === '';
+        if (process.env.NODE_ENV !== 'production' && isLoopback) {
+          isAllowed = true;
+        }
+      }
+
+      if (!isAllowed) {
+        return res.status(403).json({ error: 'CSRF validation failed: unauthorized or missing origin.' });
+      }
+    }
+
     const p = jwt.verify(tok, SECRET);
     const s = await pool.query('SELECT * FROM sessions WHERE id=$1', [p.sid]);
     const sess = s.rows[0];
@@ -240,11 +300,18 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, _res, next) => {
+  req.cookies = parseCookies(req.headers.cookie);
+  next();
+});
 app.use(express.json({ limit: '25mb' }));
 // Distributed rate limiter (PostgreSQL backed with in-memory fallback)
-app.use('/api', createDistributedRateLimiter(pool, { limit: 120, windowMs: 60000, prefix: 'api' }));
-app.use('/api/auth/login', createDistributedRateLimiter(pool, { limit: 15, windowMs: 60000, prefix: 'auth_login' }));
-app.use('/api/setup/import', createDistributedRateLimiter(pool, { limit: 15, windowMs: 60000, prefix: 'auth_import' }));
+const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+app.use('/api', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 120, windowMs: 60000, prefix: 'api' }));
+app.use('/api/auth/login', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 15, windowMs: 60000, prefix: 'auth_login' }));
+app.use('/api/auth/forgot-password', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 5, windowMs: 900000, prefix: 'auth_forgot' }));
+app.use('/api/auth/reset-password', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 5, windowMs: 900000, prefix: 'auth_reset' }));
+app.use('/api/setup/import', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 15, windowMs: 60000, prefix: 'auth_import' }));
 app.set('trust proxy', 1); // Specific proxy hop trust
 const OPEN = ['/', '/api', '/api/server', '/api/status', '/api/health'];
 
@@ -294,7 +361,7 @@ async function runMigrationWithRetry(retries = E.VERCEL ? 1 : 3) {
   return false;
 }
 
-const READY = runMigrationWithRetry();
+export const READY = runMigrationWithRetry();
 
 app.use(async (req, res, next) => {
   if (OPEN.includes(req.path)) return next();
@@ -626,10 +693,169 @@ app.post('/api/auth/login', async (req, res) => {
     pool.query("INSERT INTO app_records (store, id, data, pos, updated_by) VALUES ('paa_x_login_history', $1, $2, $3, $4)", [ev.id, ev, -Date.now(), emp.id]),
   ]);
 
-  res.json({ token: jwt.sign({ sid }, SECRET, { expiresIn: '7d' }), user: { id: emp.id, name: emp.name, email: emp.email, role: emp.role }, mustChange: !cr || cr.must_change });
+  const token = jwt.sign({ sid }, SECRET, { expiresIn: '7d' });
+  const isProduction = process.env.NODE_ENV === 'production';
+  const remember = !!req.body?.remember;
+
+  res.cookie('paa_session', token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: remember ? 7 * 24 * 60 * 60 * 1000 : undefined,
+  });
+
+  res.json({ token, user: { id: emp.id, name: emp.name, email: emp.email, role: emp.role }, mustChange: !cr || cr.must_change });
 });
 
-app.post('/api/auth/logout', auth, async (req, res) => { await pool.query('UPDATE sessions SET revoked_at=now() WHERE id=$1', [req.u.sid]); res.json({ ok: true }); });
+app.post('/api/auth/logout', auth, async (req, res) => {
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE id=$1', [req.u.sid]);
+  res.clearCookie('paa_session', { path: '/' });
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const clientIp = ip(req);
+  const login = String(req.body?.login || '').trim().toLowerCase();
+  const GENERIC_MSG = 'If an account matches the information provided, password reset instructions will be sent.';
+
+  if (!login) {
+    return res.status(400).json({ error: 'Please enter your work email or employee ID.' });
+  }
+
+  try {
+    const empRes = await pool.query(
+      'SELECT id, data FROM employees WHERE lower(email)=$1 OR lower(employee_code)=$1 LIMIT 1',
+      [login]
+    );
+
+    const emp = empRes.rows[0]?.data;
+    if (emp && emp.status !== 'inactive') {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      // Invalidate existing pending tokens for this employee
+      await pool.query(
+        'UPDATE password_reset_tokens SET used_at=now() WHERE employee_id=$1 AND used_at IS NULL',
+        [emp.id]
+      );
+
+      // Insert new token with 20-minute expiration
+      await pool.query(
+        `INSERT INTO password_reset_tokens (employee_id, token_hash, expires_at, created_by_ip, user_agent)
+         VALUES ($1, $2, now() + interval '20 minutes', $3, $4)`,
+        [emp.id, tokenHash, clientIp, String(req.headers['user-agent'] || '').slice(0, 200)]
+      );
+
+      const host = req.get('host') || 'localhost:3000';
+      const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+      const resetUrl = `${protocol}://${host}/?reset_token=${rawToken}`;
+
+      try {
+        await sendEmail(pool, {
+          to: emp.email,
+          subject: 'Priority Ads Agency ERP - Password Reset Request',
+          category: 'auth_reset',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; color: #1E293B;">
+              <h2 style="color: #0F172A;">AgencyOS Security Notification</h2>
+              <p>Hello ${emp.name || 'Team Member'},</p>
+              <p>A password reset request was initiated for your corporate account (<strong>${emp.employeeId || emp.email}</strong>).</p>
+              <p style="margin: 24px 0;">
+                <a href="${resetUrl}" style="background-color: #0F172A; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Reset Password</a>
+              </p>
+              <p style="font-size: 13px; color: #64748B;">This link is single-use and will expire in 20 minutes. If you did not request a password reset, please notify Agency Security immediately.</p>
+              <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 24px 0;" />
+              <p style="font-size: 11px; color: #94A3B8;">Priority Ads Agency • Zero-Trust Operations Platform</p>
+            </div>
+          `,
+        });
+      } catch (mailErr) {
+        console.warn('[AgencyOS Reset Email Warning]:', mailErr.message);
+      }
+
+      pool.query(
+        'INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,true,$3,$4,$5)',
+        [emp.id, login, 'password reset request issued', clientIp, String(req.headers['user-agent'] || '').slice(0, 200)]
+      ).catch(() => {});
+    }
+
+    return res.json({ ok: true, message: GENERIC_MSG });
+  } catch (err) {
+    console.error('[AgencyOS Forgot Password Error]:', err);
+    return res.json({ ok: true, message: GENERIC_MSG });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const clientIp = ip(req);
+  const { token, newPassword } = req.body || {};
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Reset token is required.' });
+  }
+
+  if (!isValidPassword(String(newPassword || ''))) {
+    return res.status(400).json({
+      error: 'Password must be at least 8 characters long and contain uppercase, lowercase, numbers, and symbols.',
+    });
+  }
+
+  if (KNOWN_DEFAULT_PASSWORDS.includes(String(newPassword))) {
+    return res.status(400).json({ error: 'You cannot use a default temporary password.' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const tokenRes = await client.query(
+      `SELECT * FROM password_reset_tokens
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+       FOR UPDATE`,
+      [tokenHash]
+    );
+
+    if (tokenRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Password reset link is invalid, expired, or has already been used.' });
+    }
+
+    const resetRow = tokenRes.rows[0];
+    const empId = resetRow.employee_id;
+
+    // 1. Mark token as consumed
+    await client.query('UPDATE password_reset_tokens SET used_at = now() WHERE id = $1', [resetRow.id]);
+
+    // 2. Hash and update password transactionally
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await client.query(
+      `INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_at, updated_by)
+       VALUES ($1, $2, false, now(), 'self-service-reset')
+       ON CONFLICT (employee_id)
+       DO UPDATE SET password_hash = EXCLUDED.password_hash, must_change = false, updated_at = now(), updated_by = 'self-service-reset'`,
+      [empId, newHash]
+    );
+
+    // 3. Revoke all active sessions
+    await client.query('UPDATE sessions SET revoked_at = now() WHERE employee_id = $1 AND revoked_at IS NULL', [empId]);
+
+    // 4. Audit logging
+    await client.query(
+      'INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,true,$3,$4,$5)',
+      [empId, 'reset-password', 'password reset completed', clientIp, String(req.headers['user-agent'] || '').slice(0, 200)]
+    );
+
+    await client.query('COMMIT');
+    return res.json({ ok: true, message: 'Password has been reset successfully. Please sign in with your new credentials.' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: 'Failed to reset password: ' + err.message });
+  } finally {
+    client.release();
+  }
+});
 app.post('/api/auth/logout-others', auth, async (req, res) => { const r = await pool.query('UPDATE sessions SET revoked_at=now() WHERE employee_id=$1 AND id<>$2 AND revoked_at IS NULL', [req.u.id, req.u.sid]); res.json({ ok: true, ended: r.rowCount }); });
 app.get('/api/auth/sessions', auth, async (req, res) => { const r = await pool.query('SELECT id, ip, user_agent, created_at, last_seen, revoked_at FROM sessions WHERE employee_id=$1 ORDER BY last_seen DESC LIMIT 20', [req.u.id]); res.json(r.rows.map((s) => ({ ...s, current: s.id === req.u.sid }))); });
 app.post('/api/auth/password', auth, async (req, res) => {
@@ -1480,7 +1706,13 @@ app.post('/api/webhooks/whatsapp', express.raw({ type: 'application/json' }), as
   res.json({ ok: true, received: true });
 });
 
-if (!E.VERCEL && process.env.NODE_ENV !== 'test') {
+const isTestEnv =
+  process.env.NODE_ENV === 'test' ||
+  process.env.npm_lifecycle_event === 'test' ||
+  Boolean(process.env.NODE_TEST_CONTEXT) ||
+  process.argv.includes('--test') ||
+  process.execArgv.includes('--test');
+if (!E.VERCEL && !isTestEnv) {
   app.listen(PORT, async () => {
     console.log('\n  ================ AgencyOS Server ================');
     console.log('  Server     : RUNNING on http://localhost:' + PORT);

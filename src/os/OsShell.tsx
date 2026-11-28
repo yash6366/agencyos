@@ -39,12 +39,40 @@ export const OsSidebar: React.FC<{
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem(EXP_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
     } catch {
       // ignore
     }
     return { Workspace: true, 'CRM & Sales': true };
   });
+
+  // Mobile drawer: close on Escape key
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
+  // Mobile drawer: prevent background body scroll when drawer is open
+  useEffect(() => {
+    if (open && typeof window !== 'undefined' && window.innerWidth <= 900) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [open]);
 
   const toggleGroup = (key: string) => {
     setExpanded((prev) => {
@@ -129,12 +157,13 @@ export const OsSidebar: React.FC<{
         </div>
 
         {/* 10 Collapsible Navigation Groups */}
-        <div className="nav-scroll">
+        <nav className="nav-scroll" aria-label="Main Navigation">
           {groups.map((g) => {
             const isOpen = isGroupOpen(g.key);
             const hasActiveChild = g.pages.some((p) =>
               p.members ? p.members.includes(current) : current === p.id
             );
+            const groupId = `nav-group-${g.key.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
 
             return (
               <div key={g.key} style={{ marginBottom: 4 }}>
@@ -143,6 +172,9 @@ export const OsSidebar: React.FC<{
                   onClick={() => toggleGroup(g.key)}
                   role="button"
                   tabIndex={0}
+                  aria-expanded={isOpen}
+                  aria-controls={groupId}
+                  aria-label={`${g.key} section, ${isOpen ? 'expanded' : 'collapsed'}`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -168,13 +200,14 @@ export const OsSidebar: React.FC<{
                 </div>
 
                 {isOpen && (
-                  <div style={{ display: 'grid', gap: 2, paddingLeft: 4 }}>
+                  <div id={groupId} style={{ display: 'grid', gap: 2, paddingLeft: 4 }}>
                     {g.pages.map((p) => {
                       const isActive = p.members ? p.members.includes(current) : current === p.id;
                       return (
                         <button
                           key={p.id}
                           className={`nav-item ${isActive ? 'active' : ''}`}
+                          aria-current={isActive ? 'page' : undefined}
                           onClick={() => {
                             navigate(p.go);
                             onClose();
@@ -199,7 +232,7 @@ export const OsSidebar: React.FC<{
               No matching screens for this role.
             </div>
           )}
-        </div>
+        </nav>
 
         {/* Sidebar Footer with Profile Trigger */}
         <div className="sidebar-bottom">

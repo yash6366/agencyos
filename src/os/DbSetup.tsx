@@ -1,15 +1,95 @@
-// AGENCYOS_DB: first-time database setup notice on the login screen
+// AGENCYOS_DB: first-time database setup notice and connectivity indicator on the login screen
 import React, { useEffect, useState } from 'react';
 import { dbEnabled, dbSetupStatus, dbImportThisBrowser } from '../lib/dbSync';
+import { Database, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 
-export const DbSetup: React.FC = () => {
+interface DbSetupProps {
+  compact?: boolean;
+}
+
+export const DbSetup: React.FC<DbSetupProps> = ({ compact = true }) => {
   const [st, setSt] = useState<'off' | 'checking' | 'empty' | 'ok' | 'down'>(dbEnabled() ? 'checking' : 'off');
-  const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
-  useEffect(() => { if (dbEnabled()) dbSetupStatus().then((s) => setSt(!s ? 'down' : s.empty ? 'empty' : 'ok')); }, []);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (dbEnabled()) {
+      dbSetupStatus().then((s) => setSt(!s ? 'down' : s.empty ? 'empty' : 'ok'));
+    }
+  }, []);
+
   if (st === 'off' || st === 'checking') return null;
-  if (st === 'down') return <div className="notice" style={{ background: '#FEEDEC', borderColor: '#F8D5D1', color: '#B42318' }}><div><strong>Database server is not running.</strong>Open a second PowerShell in the project folder and run <code>npm.cmd run server</code>, then refresh.</div></div>;
-  if (st === 'ok') return <div className="tiny-note" style={{ margin: '0 0 10px', color: '#087F59' }}>{'\u25CF'} Connected to the company database</div>;
-  return (<div className="notice"><div><strong>New empty database</strong>Copy the people and records saved in this browser into PostgreSQL. Do this once, on the computer that has your real data.
-    <div style={{ marginTop: 8 }}><button type="button" className="soft-button" disabled={busy} onClick={async () => { if (!confirm('Copy all data from this browser into the database now?')) return; setBusy(true); const m = await dbImportThisBrowser(); setBusy(false); setMsg(m); if (/^Copied/.test(m)) setSt('ok'); }}>{busy ? 'Copying\u2026' : 'Copy this browser\u2019s data to the database'}</button></div>
-    {msg && <div style={{ marginTop: 6 }}>{msg}</div>}</div></div>);
+
+  if (st === 'ok') {
+    return (
+      <div
+        className="login-db-status online"
+        role="status"
+        aria-label="Database status: Connected to the company database"
+        title="Connected to high-availability PostgreSQL database"
+      >
+        <Database size={13} className="login-db-icon" strokeWidth={2.2} aria-hidden="true" />
+        <span className="login-db-text">Connected to the company database</span>
+      </div>
+    );
+  }
+
+  if (st === 'down') {
+    return (
+      <div
+        className="login-db-alert down"
+        role="alert"
+        aria-live="assertive"
+      >
+        <div className="login-db-alert-icon">
+          <AlertTriangle size={16} aria-hidden="true" />
+        </div>
+        <div className="login-db-alert-content">
+          <strong>Database Server Offline</strong>
+          <span>
+            AgencyOS backend is not reachable. Run <code>npm.cmd run server</code> in PowerShell to connect.
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // st === 'empty'
+  return (
+    <div className="login-db-alert empty" role="region" aria-label="Database Setup">
+      <div className="login-db-alert-icon">
+        <Database size={16} aria-hidden="true" />
+      </div>
+      <div className="login-db-alert-content">
+        <strong>Initial Database Migration Required</strong>
+        <p>No records found in PostgreSQL. Copy browser dataset into the centralized database.</p>
+        <button
+          type="button"
+          className="login-db-btn"
+          disabled={busy}
+          onClick={async () => {
+            if (!confirm('Copy all data from this browser into the database now?')) return;
+            setBusy(true);
+            const m = await dbImportThisBrowser();
+            setBusy(false);
+            setMsg(m);
+            if (/^Copied/.test(m)) setSt('ok');
+          }}
+        >
+          {busy ? (
+            <>
+              <RefreshCw size={13} className="animate-spin" aria-hidden="true" />
+              <span>Importing records…</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle size={13} aria-hidden="true" />
+              <span>Copy browser data to PostgreSQL</span>
+            </>
+          )}
+        </button>
+        {msg && <div className="login-db-msg">{msg}</div>}
+      </div>
+    </div>
+  );
 };

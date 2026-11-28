@@ -29,6 +29,7 @@ export async function authFetch<T = any>(
     const res = await fetch(url, {
       ...options,
       headers,
+      credentials: options.credentials || 'same-origin',
     });
 
     let json: any = null;
@@ -144,4 +145,28 @@ export async function fetchUserSessions(): Promise<SessionRecord[]> {
 export async function revokeUserSession(sessionId: string): Promise<boolean> {
   const res = await authFetch(`/auth/sessions/${sessionId}/revoke`, { method: 'POST' });
   return res.ok;
+}
+
+export async function requestPasswordReset(login: string): Promise<{ ok: boolean; message: string; error?: string }> {
+  const res = await authFetch<{ ok: boolean; message: string }>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ login: login.trim() }),
+  });
+  return {
+    ok: res.ok,
+    message: res.data?.message || 'If an account matches the information provided, password reset instructions will be sent.',
+    error: res.error,
+  };
+}
+
+export async function submitPasswordReset(token: string, newPassword: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const res = await authFetch<{ ok: boolean; message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token: token.trim(), newPassword }),
+  });
+  return {
+    ok: res.ok,
+    message: res.data?.message,
+    error: res.error,
+  };
 }

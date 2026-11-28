@@ -26,7 +26,7 @@ const clone = (v: any) => (v === undefined ? undefined : JSON.parse(JSON.stringi
 const read = (k: string) => { try { const s = localStorage.getItem(k); return s === null ? undefined : JSON.parse(s); } catch { return undefined; } };
 
 async function api(path: string, body?: any, keepalive = false) {
-  const r = await fetch(API + path, { method: body === undefined ? 'GET' : 'POST', keepalive, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const r = await fetch(API + path, { method: body === undefined ? 'GET' : 'POST', keepalive, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() }, body: body === undefined ? undefined : JSON.stringify(body) });
   let j: any = {}; try { j = await r.json(); } catch { /* empty */ }
   return { status: r.status, ok: r.ok, j };
 }
