@@ -12,34 +12,35 @@ import { renderOsPage } from './os/OsRouter';
 import { HubTabs } from './os/osHubs';
 import { AccessAdmin, ForcePasswordChange } from './components/AccessAdmin';
 import { FinanceDashboard } from './components/FinanceDashboard';
-import { ClientReimbursementModule } from './components/ClientReimbursementModule'; // AGENCYOS_V2_PART11
 import { canAccess, homeTab, ROLE_LABEL, setFieldAccess } from './lib/rbac';
 import { useShared } from './lib/sharedStore';
 import { AppProvider, useApp } from './context/AppContext';
 import { RoleDashboardView } from './components/RoleDashboardView';
-import { AnalyticsView } from './components/AnalyticsView';
-import { AttendanceModule } from './components/AttendanceModule';
-import { FieldForceModule } from './components/FieldForceModule';
-import { CrmModule } from './components/CrmModule';
-import { ProjectsTasksModule } from './components/ProjectsTasksModule';
-import { ReimbursementsPayrollModule } from './components/ReimbursementsPayrollModule';
-import { EmployeesModule } from './components/EmployeesModule';
-import { LeaveManagementModule } from './components/LeaveManagementModule';
-import { FieldGpsModule } from './components/FieldGpsModule';
 import { AgencyWatchers } from './components/AgencyWatchers';
-import { AuditSettingsModule } from './components/AuditSettingsModule';
-import { DocumentViewerModal } from './components/DocumentViewerModal';
-import { AddEntityModals } from './components/AddEntityModals';
 import { useRouter } from './lib/router';
-import { GlobalSearchModal } from './components/GlobalSearchModal';
-import { MyProfileModal } from './components/MyProfileModal';
-import { GoogleCalendarModal } from './components/GoogleCalendarModal';
 
+// Lazy-loaded feature modules to keep initial bundle ultra-lean
 const DealsModule = lazy(() => import('./components/DealsModule').then(m => ({ default: m.DealsModule })));
 const HrPayrollModule = lazy(() => import('./components/HrPayrollModule').then(m => ({ default: m.HrPayrollModule })));
 const DocumentCenter = lazy(() => import('./components/DocumentCenter').then(m => ({ default: m.DocumentCenter })));
 const FinanceBook = lazy(() => import('./components/FinanceBook').then(m => ({ default: m.FinanceBook })));
 const SalesBillingModule = lazy(() => import('./components/SalesBillingModule').then(m => ({ default: m.SalesBillingModule })));
+const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
+const AttendanceModule = lazy(() => import('./components/AttendanceModule').then(m => ({ default: m.AttendanceModule })));
+const FieldForceModule = lazy(() => import('./components/FieldForceModule').then(m => ({ default: m.FieldForceModule })));
+const CrmModule = lazy(() => import('./components/CrmModule').then(m => ({ default: m.CrmModule })));
+const ProjectsTasksModule = lazy(() => import('./components/ProjectsTasksModule').then(m => ({ default: m.ProjectsTasksModule })));
+const ReimbursementsPayrollModule = lazy(() => import('./components/ReimbursementsPayrollModule').then(m => ({ default: m.ReimbursementsPayrollModule })));
+const EmployeesModule = lazy(() => import('./components/EmployeesModule').then(m => ({ default: m.EmployeesModule })));
+const LeaveManagementModule = lazy(() => import('./components/LeaveManagementModule').then(m => ({ default: m.LeaveManagementModule })));
+const FieldGpsModule = lazy(() => import('./components/FieldGpsModule').then(m => ({ default: m.FieldGpsModule })));
+const ClientReimbursementModule = lazy(() => import('./components/ClientReimbursementModule').then(m => ({ default: m.ClientReimbursementModule })));
+const AuditSettingsModule = lazy(() => import('./components/AuditSettingsModule').then(m => ({ default: m.AuditSettingsModule })));
+const DocumentViewerModal = lazy(() => import('./components/DocumentViewerModal').then(m => ({ default: m.DocumentViewerModal })));
+const AddEntityModals = lazy(() => import('./components/AddEntityModals').then(m => ({ default: m.AddEntityModals })));
+const GlobalSearchModal = lazy(() => import('./components/GlobalSearchModal').then(m => ({ default: m.GlobalSearchModal })));
+const MyProfileModal = lazy(() => import('./components/MyProfileModal').then(m => ({ default: m.MyProfileModal })));
+const GoogleCalendarModal = lazy(() => import('./components/GoogleCalendarModal').then(m => ({ default: m.GoogleCalendarModal })));
 
 const ModuleFallback = () => (
   <div className="flex items-center justify-center p-12 text-slate-400 text-sm">
@@ -228,15 +229,15 @@ function MainApp() {
           {allowed && activeTab === 'employee_desk' && (
             <RoleDashboardView onOpenAddModal={openAddModal} forcedDesk="employee" />
           )}
-          {allowed && activeTab === 'analytics' && <AnalyticsView />}
-          {allowed && activeTab === 'attendance' && <AttendanceModule onOpenRegularizeModal={() => openAddModal('regularization')} />}
-          {allowed && activeTab === 'leave' && <LeaveManagementModule />}
           <AgencyWatchers />
           <ForcePasswordChange />
           {allowed && activeTab === 'finance_desk' && <FinanceDashboard onOpen={setActiveTab} />}
           {allowed && activeTab === 'access_admin' && <AccessAdmin />}
-          {allowed && activeTab === 'client_reimbursements' && <ClientReimbursementModule />}
           <Suspense fallback={<ModuleFallback />}>
+            {allowed && activeTab === 'analytics' && <AnalyticsView />}
+            {allowed && activeTab === 'attendance' && <AttendanceModule onOpenRegularizeModal={() => openAddModal('regularization')} />}
+            {allowed && activeTab === 'leave' && <LeaveManagementModule />}
+            {allowed && activeTab === 'client_reimbursements' && <ClientReimbursementModule />}
             {allowed && activeTab === 'hr_onboarding' && <HrPayrollModule key="hr_onboarding" initialTab="onboarding" />}
             {allowed && activeTab === 'hr_payroll' && <HrPayrollModule key="hr_payroll" initialTab="payroll" />}
             {allowed && activeTab === 'document_center' && <DocumentCenter />}
@@ -251,79 +252,81 @@ function MainApp() {
                 onOpenAddExpenseModal={() => openAddModal('expense')}
               />
             )}
+            {allowed && activeTab === 'field_gps' && <FieldGpsModule />}
+            {allowed && activeTab === 'field_force' && (
+              <FieldForceModule
+                onOpenStartVisitModal={() => openAddModal('field_visit')}
+                onOpenExpenseModal={(vId) => openAddModal('field_expense', { visitId: vId })}
+              />
+            )}
+            {allowed && (activeTab === 'crm' || activeTab === 'leads') && (
+              <CrmModule
+                initialSubTab="leads"
+                onOpenAddLeadModal={() => openAddModal('lead')}
+                onOpenAddClientModal={() => openAddModal('client')}
+              />
+            )}
+            {allowed && activeTab === 'clients' && (
+              <CrmModule
+                initialSubTab="clients"
+                onOpenAddLeadModal={() => openAddModal('lead')}
+                onOpenAddClientModal={() => openAddModal('client')}
+              />
+            )}
+            {allowed && activeTab === 'projects' && (
+              <ProjectsTasksModule
+                initialViewMode="projects"
+                onOpenAddProjectModal={() => openAddModal('project')}
+                onOpenAddTaskModal={() => openAddModal('task')}
+                onOpenDailyActivityModal={(taskId, projectId) => openAddModal('daily_activity', { taskId, projectId })}
+              />
+            )}
+            {allowed && activeTab === 'task_operations' && (
+              <ProjectsTasksModule
+                initialViewMode="task_operations"
+                onOpenAddProjectModal={() => openAddModal('project')}
+                onOpenAddTaskModal={() => openAddModal('task')}
+                onOpenDailyActivityModal={(taskId, projectId) => openAddModal('daily_activity', { taskId, projectId })}
+              />
+            )}
+            {allowed && activeTab === 'my_tasks' && (
+              <ProjectsTasksModule
+                initialViewMode="my_tasks"
+                onOpenAddProjectModal={() => openAddModal('project')}
+                onOpenAddTaskModal={() => openAddModal('task')}
+                onOpenDailyActivityModal={(taskId, projectId) => openAddModal('daily_activity', { taskId, projectId })}
+              />
+            )}
+            {allowed && activeTab === 'reimbursements' && (
+              <ReimbursementsPayrollModule
+                onOpenAddReimbursementModal={() => openAddModal('reimbursement')}
+              />
+            )}
+            {allowed && activeTab === 'employees' && (
+              <EmployeesModule
+                onOpenAddEmployeeModal={() => openAddModal('employee')}
+              />
+            )}
+            {allowed && activeTab === 'audit_settings' && <AuditSettingsModule />}
           </Suspense>
-          {allowed && activeTab === 'field_gps' && <FieldGpsModule />}
-          {allowed && activeTab === 'field_force' && (
-            <FieldForceModule
-              onOpenStartVisitModal={() => openAddModal('field_visit')}
-              onOpenExpenseModal={(vId) => openAddModal('field_expense', { visitId: vId })}
-            />
-          )}
-          {allowed && (activeTab === 'crm' || activeTab === 'leads') && (
-            <CrmModule
-              initialSubTab="leads"
-              onOpenAddLeadModal={() => openAddModal('lead')}
-              onOpenAddClientModal={() => openAddModal('client')}
-            />
-          )}
-          {allowed && activeTab === 'clients' && (
-            <CrmModule
-              initialSubTab="clients"
-              onOpenAddLeadModal={() => openAddModal('lead')}
-              onOpenAddClientModal={() => openAddModal('client')}
-            />
-          )}
-          {allowed && activeTab === 'projects' && (
-            <ProjectsTasksModule
-              initialViewMode="projects"
-              onOpenAddProjectModal={() => openAddModal('project')}
-              onOpenAddTaskModal={() => openAddModal('task')}
-              onOpenDailyActivityModal={(taskId, projectId) => openAddModal('daily_activity', { taskId, projectId })}
-            />
-          )}
-          {allowed && activeTab === 'task_operations' && (
-            <ProjectsTasksModule
-              initialViewMode="task_operations"
-              onOpenAddProjectModal={() => openAddModal('project')}
-              onOpenAddTaskModal={() => openAddModal('task')}
-              onOpenDailyActivityModal={(taskId, projectId) => openAddModal('daily_activity', { taskId, projectId })}
-            />
-          )}
-          {allowed && activeTab === 'my_tasks' && (
-            <ProjectsTasksModule
-              initialViewMode="my_tasks"
-              onOpenAddProjectModal={() => openAddModal('project')}
-              onOpenAddTaskModal={() => openAddModal('task')}
-              onOpenDailyActivityModal={(taskId, projectId) => openAddModal('daily_activity', { taskId, projectId })}
-            />
-          )}
-          {allowed && activeTab === 'reimbursements' && (
-            <ReimbursementsPayrollModule
-              onOpenAddReimbursementModal={() => openAddModal('reimbursement')}
-            />
-          )}
-          {allowed && activeTab === 'employees' && (
-            <EmployeesModule
-              onOpenAddEmployeeModal={() => openAddModal('employee')}
-            />
-          )}
-          {allowed && activeTab === 'audit_settings' && <AuditSettingsModule />}
         </div>
 
         </main>
       </div>
       <ToastHost />
 
-      {/* Global Modals & Document Viewer */}
-      <DocumentViewerModal />
-      <AddEntityModals
-        modalType={modalType}
-        onClose={closeAddModal}
-        contextData={modalContextData}
-      />
-      <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-      <MyProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
-      <GoogleCalendarModal isOpen={calendarOpen} onClose={() => setCalendarOpen(false)} />
+      {/* Global Modals & Document Viewer - lazy loaded on user interaction */}
+      <Suspense fallback={null}>
+        <DocumentViewerModal />
+        <AddEntityModals
+          modalType={modalType}
+          onClose={closeAddModal}
+          contextData={modalContextData}
+        />
+        <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+        <MyProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+        <GoogleCalendarModal isOpen={calendarOpen} onClose={() => setCalendarOpen(false)} />
+      </Suspense>
 
     </div>
   );

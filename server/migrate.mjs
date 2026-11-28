@@ -99,6 +99,14 @@ export async function runMigrations(targetPool = pool) {
     await client.query(`CREATE INDEX IF NOT EXISTS password_reset_tokens_token_hash_idx ON public.password_reset_tokens (token_hash);`);
     await client.query(`CREATE TABLE IF NOT EXISTS public.sync_events (id bigserial PRIMARY KEY, store text NOT NULL, by_employee text, at timestamptz NOT NULL DEFAULT now());`);
     await client.query(`CREATE TABLE IF NOT EXISTS public.deleted_records (id bigserial PRIMARY KEY, store text NOT NULL, record_id text NOT NULL, data jsonb, deleted_by text, deleted_at timestamptz NOT NULL DEFAULT now());`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.rate_limit_events (
+        id bigserial PRIMARY KEY,
+        key text NOT NULL,
+        at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS rate_limit_events_key_at_idx ON public.rate_limit_events (key, at);
+    `);
 
     // 4. Audit immutability trigger & function
     await client.query(`

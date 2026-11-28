@@ -20,6 +20,34 @@ export function getClientIp(req) {
 
 const memoryFallback = new Map();
 
+let rateLimitTableInitialized = false;
+let rateLimitInitPromise = null;
+
+async function ensureRateLimitTable(pool) {
+  if (rateLimitTableInitialized) return;
+  if (rateLimitInitPromise) return rateLimitInitPromise;
+
+  rateLimitInitPromise = (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS public.rate_limit_events (
+          id bigserial PRIMARY KEY,
+          key text NOT NULL,
+          at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS rate_limit_events_key_at_idx ON public.rate_limit_events (key, at);
+      `);
+      rateLimitTableInitialized = true;
+    } catch (err) {
+      console.warn('[RateLimiter Table Init Notice]:', err.message);
+      // Reset promise so subsequent requests can retry
+      rateLimitInitPromise = null;
+    }
+  })();
+
+  return rateLimitInitPromise;
+}
+
 /**
  * Creates an Express middleware for rate limiting backed by PostgreSQL (or memory fallback)
  * @param {import('pg').Pool} pool
@@ -44,17 +72,12 @@ export function createDistributedRateLimiter(pool, options = {}) {
 
     try {
       if (pool) {
-        // Distributed counter in PostgreSQL: ensure table exists (idempotent)
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS public.rate_limit_events (
-            id bigserial PRIMARY KEY,
-            key text NOT NULL,
-            at timestamptz NOT NULL DEFAULT now()
-          );
-          CREATE INDEX IF NOT EXISTS rate_limit_events_key_at_idx ON public.rate_limit_events (key, at);
-        `).catch(() => {});
+        // Ensure table exists safely with retryable single-flight promise
+        if (!rateLimitTableInitialized) {
+          await ensureRateLimitTable(pool);
+        }
 
-        // Insert event and count in window
+        // Insert event and count in window concurrently
         const [insertRes, countRes] = await Promise.all([
           pool.query('INSERT INTO public.rate_limit_events (key, at) VALUES ($1, now())', [key]).catch(() => {}),
           pool.query('SELECT count(*)::int n FROM public.rate_limit_events WHERE key=$1 AND at > $2', [key, windowStart]),

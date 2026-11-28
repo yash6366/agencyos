@@ -181,7 +181,7 @@ export async function initDb(): Promise<void> {
       } catch {
         /* offline */
       }
-    }, 20000);
+    }, 45000);
   } catch (e: any) {
     const isCloud = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
     if (isCloud) {

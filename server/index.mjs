@@ -227,14 +227,22 @@ async function auth(req, res, next) {
     }
 
     const p = jwt.verify(tok, SECRET);
-    const s = await pool.query('SELECT * FROM sessions WHERE id=$1', [p.sid]);
+    const s = await pool.query(`
+      SELECT s.id, s.employee_id, s.last_seen, s.revoked_at, e.data as emp_data
+      FROM sessions s
+      JOIN employees e ON e.id = s.employee_id
+      WHERE s.id = $1
+    `, [p.sid]);
     const sess = s.rows[0];
     if (!sess || sess.revoked_at) return res.status(401).json({ error: 'Session ended. Please sign in again.' });
-    if (Date.now() - new Date(sess.last_seen).getTime() > 12 * 3600 * 1000) { await pool.query('UPDATE sessions SET revoked_at=now() WHERE id=$1', [p.sid]); return res.status(401).json({ error: 'Signed out after 12 hours of no activity.' }); }
-    const e = await pool.query('SELECT data FROM employees WHERE id=$1', [sess.employee_id]);
-    const emp = e.rows[0]?.data;
+    const lastSeenTime = new Date(sess.last_seen).getTime();
+    if (Date.now() - lastSeenTime > 12 * 3600 * 1000) { await pool.query('UPDATE sessions SET revoked_at=now() WHERE id=$1', [p.sid]); return res.status(401).json({ error: 'Signed out after 12 hours of no activity.' }); }
+    const emp = sess.emp_data;
     if (!emp || emp.status === 'inactive') return res.status(401).json({ error: 'This account is disabled.' });
-    await pool.query('UPDATE sessions SET last_seen=now() WHERE id=$1', [p.sid]);
+    // Throttle last_seen database writes to once per 60 seconds to eliminate redundant write roundtrips
+    if (Date.now() - lastSeenTime > 60 * 1000) {
+      pool.query('UPDATE sessions SET last_seen=now() WHERE id=$1', [p.sid]).catch(() => {});
+    }
     req.u = { id: emp.id, role: emp.role, name: emp.name, sid: p.sid };
     next();
   } catch { res.status(401).json({ error: 'Please sign in.' }); }
@@ -315,11 +323,24 @@ app.use((req, _res, next) => {
 app.use(express.json({ limit: '25mb' }));
 // Distributed rate limiter (PostgreSQL backed with in-memory fallback)
 const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
-app.use('/api', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 120, windowMs: 60000, prefix: 'api' }));
-app.use('/api/auth/login', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 15, windowMs: 60000, prefix: 'auth_login' }));
-app.use('/api/auth/forgot-password', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 5, windowMs: 900000, prefix: 'auth_forgot' }));
-app.use('/api/auth/reset-password', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 5, windowMs: 900000, prefix: 'auth_reset' }));
-app.use('/api/setup/import', createDistributedRateLimiter(pool, { limit: isTest ? 500 : 15, windowMs: 60000, prefix: 'auth_import' }));
+const apiRateLimiter = createDistributedRateLimiter(pool, { limit: isTest ? 500 : 120, windowMs: 60000, prefix: 'api' });
+const loginRateLimiter = createDistributedRateLimiter(pool, { limit: isTest ? 500 : 15, windowMs: 60000, prefix: 'auth_login' });
+const forgotRateLimiter = createDistributedRateLimiter(pool, { limit: isTest ? 500 : 5, windowMs: 900000, prefix: 'auth_forgot' });
+const resetRateLimiter = createDistributedRateLimiter(pool, { limit: isTest ? 500 : 5, windowMs: 900000, prefix: 'auth_reset' });
+const importRateLimiter = createDistributedRateLimiter(pool, { limit: isTest ? 500 : 15, windowMs: 60000, prefix: 'auth_import' });
+
+// Route-specific rate limits applied without duplicate execution
+app.use('/api/auth/login', loginRateLimiter);
+app.use('/api/auth/forgot-password', forgotRateLimiter);
+app.use('/api/auth/reset-password', resetRateLimiter);
+app.use('/api/setup/import', importRateLimiter);
+// General API rate limiter for all other /api endpoints
+app.use('/api', (req, res, next) => {
+  if (['/auth/login', '/auth/forgot-password', '/auth/reset-password', '/setup/import'].some((p) => req.path.startsWith(p))) {
+    return next();
+  }
+  return apiRateLimiter(req, res, next);
+});
 app.set('trust proxy', 1); // Specific proxy hop trust
 const OPEN = ['/', '/api', '/api/server', '/api/status', '/api/health'];
 
@@ -617,19 +638,26 @@ app.post('/api/auth/login', async (req, res) => {
       ])
       .catch((err) => console.warn('login log warning:', err.message));
 
-  // Run IP rate check & employee lookup in parallel for fast execution
+  // Run IP rate check & single-query employee + credentials lookup in parallel
   const [ipRes, empRes] = await Promise.all([
     pool
       .query("SELECT count(*)::int n FROM login_events WHERE ip=$1 AND ok=false AND at > now() - interval '15 minutes'", [clientIp])
       .catch(() => ({ rows: [{ n: 0 }] })),
-    pool.query('SELECT data FROM employees WHERE lower(email)=$1 OR lower(employee_code)=$1 LIMIT 1', [login]),
+    pool.query(`
+      SELECT e.id, e.data, c.password_hash, c.must_change
+      FROM employees e
+      LEFT JOIN user_credentials c ON c.employee_id = e.id
+      WHERE lower(e.email) = $1 OR lower(e.employee_code) = $1
+      LIMIT 1
+    `, [login]),
   ]);
 
   if ((ipRes.rows[0]?.n || 0) >= 10) {
     return res.status(429).json({ error: 'Too many failed login attempts from this network. Please try again after 15 minutes.' });
   }
 
-  const emp = empRes.rows[0]?.data;
+  const empRow = empRes.rows[0];
+  const emp = empRow?.data;
   if (!emp) {
     log(null, false, 'unknown login');
     return res.status(401).json({ error: 'Invalid work email, employee ID, or password.' });
@@ -640,20 +668,17 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(403).json({ error: 'This account has been deactivated. Please contact your system administrator or HR.' });
   }
 
-  // Fetch failed attempts and user credentials in parallel
-  const [failsRes, crRes] = await Promise.all([
-    pool
-      .query("SELECT count(*)::int n FROM login_events WHERE employee_id=$1 AND ok=false AND at > now() - interval '15 minutes'", [emp.id])
-      .catch(() => ({ rows: [{ n: 0 }] })),
-    pool.query('SELECT * FROM user_credentials WHERE employee_id=$1', [emp.id]),
-  ]);
+  // Fetch failed attempts for this employee
+  const failsRes = await pool
+    .query("SELECT count(*)::int n FROM login_events WHERE employee_id=$1 AND ok=false AND at > now() - interval '15 minutes'", [emp.id])
+    .catch(() => ({ rows: [{ n: 0 }] }));
 
   const fails = failsRes.rows[0]?.n || 0;
   if (fails >= 5) {
     return res.status(429).json({ error: 'Your account has been temporarily locked due to consecutive unsuccessful sign-in attempts. Please try again after 15 minutes or contact your system administrator.' });
   }
 
-  const cr = crRes.rows[0];
+  const cr = empRow.password_hash ? { password_hash: empRow.password_hash, must_change: empRow.must_change } : null;
   let ok = false;
   if (cr) {
     // 1. Direct server-side bcrypt hash
@@ -662,21 +687,21 @@ app.post('/api/auth/login', async (req, res) => {
     if (!ok) {
       ok = await bcrypt.compare(clientHash(pw), cr.password_hash);
       if (ok) {
-        const upgraded = await bcrypt.hash(pw, 12);
+        const upgraded = await bcrypt.hash(pw, 10);
         pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]).catch(console.warn);
       }
     }
     // 3. Fallback: uninitialized/temporary accounts (must_change=true) matching default passwords
     if (!ok && cr.must_change && isMatchDefault(pw)) {
       ok = true;
-      const upgraded = await bcrypt.hash(pw, 12);
+      const upgraded = await bcrypt.hash(pw, 10);
       pool.query('UPDATE user_credentials SET password_hash=$1 WHERE employee_id=$2', [upgraded, emp.id]).catch(console.warn);
     }
   } else {
     // Uninitialized password: check against configured INITIAL_ADMIN_PASSWORD or known default passwords
     if (isMatchDefault(pw)) {
       ok = true;
-      const initialHash = await bcrypt.hash(pw, 12);
+      const initialHash = await bcrypt.hash(pw, 10);
       await pool
         .query(
           'INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_by) VALUES ($1,$2,true,$3) ON CONFLICT (employee_id) DO UPDATE SET password_hash=EXCLUDED.password_hash, must_change=true',
@@ -902,9 +927,23 @@ app.get('/api/bootstrap', auth, async (req, res) => {
     const org = await getSetting('paa_x_os_org', {}); const mine = org[u.id];
     for (const [id, p] of Object.entries(org)) if (p.reportsTo === u.id || (mine && p.unit === mine.unit && !/manager/i.test(p.position))) team.add(id);
   }
-  for (const key of TABLE_KEYS) {
+
+  // Execute all table queries concurrently in parallel instead of sequentially
+  const tableQueryPromises = TABLE_KEYS.map((key) => {
     const d = T[key];
-    let rows = (await pool.query(`SELECT data, pos FROM ${d.t} ORDER BY pos, created_at`)).rows.map(row2);
+    return pool.query(`SELECT data, pos FROM ${d.t} ORDER BY pos, created_at`).then((res) => ({ key, d, res }));
+  });
+
+  const [tableResults, recsRes, settingsRes, credsRes, syncRes] = await Promise.all([
+    Promise.all(tableQueryPromises),
+    pool.query('SELECT store, data FROM app_records ORDER BY store, pos, updated_at'),
+    pool.query('SELECT key, value FROM app_settings'),
+    pool.query('SELECT employee_id, must_change, updated_at FROM user_credentials'),
+    pool.query('SELECT coalesce(max(id),0)::bigint id FROM sync_events'),
+  ]);
+
+  for (const { key, d, res: tableRes } of tableResults) {
+    let rows = tableRes.rows.map(row2);
     const view = d.mod === undefined || u.role === 'super_admin' || mx[d.mod] === 1;
     if (key === 'paa_employees') rows = PAYROLL_ROLES.includes(u.role) ? rows : rows.map((e) => (e.id === u.id ? e : stripSalary(e)));
     else if (key === 'paa_audit_logs') rows = staff ? rows.filter((r) => r.userId === u.id) : rows;
@@ -914,9 +953,10 @@ app.get('/api/bootstrap', auth, async (req, res) => {
     else if (d.own && team.size > 1) rows = rows.filter((r) => team.has(r[d.own]));
     out[key] = rows;
   }
-  const recs = (await pool.query('SELECT store, data FROM app_records ORDER BY store, pos, updated_at')).rows;
-  for (const r of recs) (out[r.store] = out[r.store] || []).push(r.data);
-  for (const r of (await pool.query('SELECT key, value FROM app_settings')).rows) out[r.key] = r.value;
+
+  for (const r of recsRes.rows) (out[r.store] = out[r.store] || []).push(r.data);
+  for (const r of settingsRes.rows) out[r.key] = r.value;
+
   // privacy filters
   if (!PAYROLL_ROLES.includes(u.role)) {
     if (Array.isArray(out.paa_x_payroll_runs)) out.paa_x_payroll_runs = out.paa_x_payroll_runs.filter((x) => ['approved', 'partially_paid', 'paid'].includes(x.status)).map((x) => ({ ...x, slips: (x.slips || []).filter((s) => s.employeeId === u.id) }));
@@ -925,9 +965,10 @@ app.get('/api/bootstrap', auth, async (req, res) => {
   }
   if (!HR_ROLES.includes(u.role)) for (const k of HR_KEYS) if (Array.isArray(out[k])) out[k] = out[k].filter((x) => x.employeeId === u.id || x.ownerId === u.id);
   if (!['super_admin', 'admin', 'hr'].includes(u.role) && Array.isArray(out.paa_x_login_history)) out.paa_x_login_history = out.paa_x_login_history.filter((x) => x.employeeId === u.id);
-  const creds = (await pool.query('SELECT employee_id, must_change, updated_at FROM user_credentials')).rows;
+
+  const creds = credsRes.rows;
   out.paa_x_credentials = creds.filter((c) => c.employee_id === u.id || ['super_admin', 'admin', 'hr'].includes(u.role)).map((c) => ({ employeeId: c.employee_id, hash: 'server', mustChange: c.must_change, updatedAt: new Date(c.updated_at).toLocaleString('en-IN') }));
-  const last = (await pool.query('SELECT coalesce(max(id),0)::bigint id FROM sync_events')).rows[0].id;
+  const last = syncRes.rows[0].id;
   res.json({ me: u, data: out, cursor: String(last) });
 });
 
