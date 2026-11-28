@@ -52,7 +52,21 @@ function writeAll(data: Record<string, any>) {
       schedule(k);
       continue;
     }
-    origSet.call(localStorage, k, JSON.stringify(v));
+    try {
+      origSet.call(localStorage, k, JSON.stringify(v));
+    } catch (err: any) {
+      if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) {
+        console.warn(`[AgencyOS Storage Warning] LocalStorage quota exceeded writing key '${k}'. Pruning temporary cached logs to recover space.`);
+        // Graceful Quota Recovery: prune non-critical transient caches
+        try {
+          origRemove.call(localStorage, 'paa_audit_logs');
+          origRemove.call(localStorage, 'paa_x_login_history');
+          origSet.call(localStorage, k, JSON.stringify(v));
+        } catch {
+          banner('Browser storage quota reached. Running in reduced local cache mode; server synchronization remains active.', undefined, 'warn');
+        }
+      }
+    }
     snapshot[k] = clone(v);
     if (Array.isArray(v)) posMap[k] = new Map(v.map((r: any, i: number) => [String(r?.id ?? i), i * 1024]));
   }
@@ -105,7 +119,23 @@ async function flush() { for (const k of [...pending]) await push(k); }
 // ---------------- start-up ----------------
 export async function initDb(): Promise<void> {
   if (!ON) return;
-  Storage.prototype.setItem = function (k: string, v: string) { origSet.call(this, k, v); if (ready && this === localStorage && synced(k)) schedule(k); };
+  Storage.prototype.setItem = function (k: string, v: string) {
+    try {
+      origSet.call(this, k, v);
+    } catch (err: any) {
+      if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) {
+        console.warn(`[AgencyOS Storage Warning] LocalStorage setItem quota exceeded for key '${k}'.`);
+        try {
+          origRemove.call(localStorage, 'paa_audit_logs');
+          origRemove.call(localStorage, 'paa_x_login_history');
+          origSet.call(this, k, v);
+        } catch {
+          // Graceful degradation: in-memory state in AppContext and background server sync continue
+        }
+      }
+    }
+    if (ready && this === localStorage && synced(k)) schedule(k);
+  };
   Storage.prototype.removeItem = function (k: string) {
     origRemove.call(this, k);
     if (this === sessionStorage && k === 'paa_x_session' && token()) { // sign-out

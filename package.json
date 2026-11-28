@@ -18,7 +18,7 @@
     "dev:web": "vite --port=3000 --host=0.0.0.0"
   },
   "engines": {
-    "node": "26.x"
+    "node": ">=20.x <=24.x"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

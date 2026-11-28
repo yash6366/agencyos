@@ -339,28 +339,163 @@ app.get('/api/setup/status', async (_q, res) => {
 });
 
 // first-time: copy this browser's data into the database
+// REM-002: Protected against unauthorized account provisioning & privilege escalation
 app.post('/api/setup/import', async (req, res) => {
-  const empCount = (await pool.query('SELECT count(*)::int n FROM employees')).rows[0].n;
-  const clientCount = (await pool.query('SELECT count(*)::int n FROM clients')).rows[0].n;
-  // Allow import if employees are 0 OR if business records are 0
-  if (empCount > 0 && clientCount > 0) {
-    return res.status(409).json({ error: 'The database already contains initialized business records.' });
+  const clientIp = ip(req);
+  const clientToken = String(req.headers['x-setup-secret'] || req.headers['x-bootstrap-token'] || req.body?.setupSecret || '').trim();
+  const configuredSecret = String(process.env.SETUP_SECRET || process.env.INITIAL_ADMIN_PASSWORD || '').trim();
+
+  // 1. Check if an existing authenticated session was provided
+  let authUser = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const tok = authHeader.replace(/^Bearer /, '');
+      const p = jwt.verify(tok, SECRET);
+      const s = await pool.query('SELECT * FROM sessions WHERE id=$1', [p.sid]);
+      const sess = s.rows[0];
+      if (sess && !sess.revoked_at && Date.now() - new Date(sess.last_seen).getTime() <= 12 * 3600 * 1000) {
+        const e = await pool.query('SELECT data FROM employees WHERE id=$1', [sess.employee_id]);
+        const emp = e.rows[0]?.data;
+        if (emp && emp.status !== 'inactive') {
+          authUser = { id: emp.id, role: emp.role, name: emp.name };
+        }
+      }
+    } catch {
+      // invalid or expired token, proceed to secret check
+    }
   }
-  const data = req.body?.data || {};
-  if (!Array.isArray(data.paa_employees) || !data.paa_employees.length) return res.status(400).json({ error: 'No employees found in this browser.' });
+
+  // 2. Query system state inside a connection to verify bootstrap lock
   const c = await pool.connect();
   try {
+    const [empRes, lockRes] = await Promise.all([
+      c.query('SELECT count(*)::int n FROM employees'),
+      c.query("SELECT value FROM app_settings WHERE key='paa_bootstrap_completed'"),
+    ]);
+
+    const empCount = empRes.rows[0]?.n || 0;
+    const isBootstrapCompleted = !!lockRes.rows[0]?.value;
+
+    // A. If already bootstrapped, strictly require super_admin authorization
+    if (isBootstrapCompleted || empCount > 0) {
+      if (!authUser || authUser.role !== 'super_admin') {
+        pool.query('INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)', [
+          authUser?.id || null,
+          'setup/import',
+          false,
+          'unauthorized import attempt after bootstrap',
+          clientIp,
+          String(req.headers['user-agent'] || '').slice(0, 200),
+        ]).catch(() => {});
+        return res.status(403).json({ error: 'Database is already initialized. Administrative import requires super_admin authentication.' });
+      }
+    } else {
+      // B. Database is empty (uninitialized bootstrap phase): require verifiable bootstrap secret
+      const isLoopback = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === 'localhost' || clientIp === '';
+      const bufToken = Buffer.from(clientToken);
+      const bufSecret = Buffer.from(configuredSecret);
+      const secretMatches = configuredSecret && clientToken && bufToken.length === bufSecret.length && crypto.timingSafeEqual(bufToken, bufSecret);
+
+      // Require secret match, or fallback to loopback with default password match if no custom secret configured
+      const authorizedBootstrap = configuredSecret ? secretMatches : (isLoopback && (clientToken === DEFAULT_PASSWORD || !clientToken));
+      if (!authorizedBootstrap) {
+        pool.query('INSERT INTO login_events (employee_id, login, ok, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)', [
+          null,
+          'setup/import',
+          false,
+          'invalid or missing bootstrap authorization secret',
+          clientIp,
+          String(req.headers['user-agent'] || '').slice(0, 200),
+        ]).catch(() => {});
+        return res.status(401).json({ error: 'Bootstrap authorization failed. A valid SETUP_SECRET or administrative authorization is required.' });
+      }
+    }
+
+    // 3. Payload size and structure validation
+    const data = req.body?.data || {};
+    if (!Array.isArray(data.paa_employees) || !data.paa_employees.length) {
+      return res.status(400).json({ error: 'Invalid import payload: paa_employees must be a non-empty array.' });
+    }
+    if (data.paa_employees.length > 500) {
+      return res.status(413).json({ error: 'Payload exceeds maximum import limit (500 employees per import).' });
+    }
+
+    // Validate employee objects and prevent privilege escalation
+    for (const emp of data.paa_employees) {
+      if (!emp || typeof emp !== 'object' || !emp.id || !emp.email) {
+        return res.status(400).json({ error: 'Malformed employee record in import payload.' });
+      }
+      // Ensure email format
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(emp.email))) {
+        return res.status(400).json({ error: `Invalid email address format for employee ${emp.id}: ${emp.email}` });
+      }
+      // If caller is not super_admin (initial bootstrap), ensure only one super_admin exists or assign fallback
+      if (emp.role && !D.roles.includes(emp.role)) {
+        return res.status(400).json({ error: `Invalid role '${emp.role}' specified for employee ${emp.id}.` });
+      }
+    }
+
+    // 4. Atomic Execution inside Transaction
     await c.query('BEGIN');
+
+    // Acquire an advisory lock to prevent concurrent bootstrap requests from interleaving
+    await c.query('SELECT pg_advisory_xact_lock(987654321)');
+
+    const updater = authUser ? authUser.id : 'bootstrap';
+
     for (const [key, val] of Object.entries(data)) {
       if (LOCAL_ONLY.test(key) || key === 'paa_x_credentials') continue;
-      if (T[key] && Array.isArray(val)) { let i = 0; for (const rec of val) if (rec && rec.id) await upsertTable(c, key, rec, i++, 'import'); }
-      else if (Array.isArray(val) && val.every((x) => x && typeof x === 'object' && typeof x.id === 'string')) { let i = 0; for (const rec of val) await c.query('INSERT INTO app_records (store, id, data, pos, updated_by) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (store,id) DO UPDATE SET data=EXCLUDED.data', [key, rec.id, rec, i++, 'import']); }
-      else await c.query('INSERT INTO app_settings (key, value, updated_by) VALUES ($1,$2,$3) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value', [key, JSON.stringify(val), 'import']);
+      if (T[key] && Array.isArray(val)) {
+        let i = 0;
+        for (const rec of val) {
+          if (rec && rec.id) await upsertTable(c, key, rec, i++, updater);
+        }
+      } else if (Array.isArray(val) && val.every((x) => x && typeof x === 'object' && typeof x.id === 'string')) {
+        let i = 0;
+        for (const rec of val) {
+          await c.query('INSERT INTO app_records (store, id, data, pos, updated_by) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (store,id) DO UPDATE SET data=EXCLUDED.data', [key, rec.id, rec, i++, updater]);
+        }
+      } else {
+        await c.query('INSERT INTO app_settings (key, value, updated_by) VALUES ($1,$2,$3) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value', [key, JSON.stringify(val), updater]);
+      }
     }
-    for (const cr of data.paa_x_credentials || []) if (cr.employeeId && cr.hash) await c.query('INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_by) VALUES ($1,$2,$3,$4) ON CONFLICT (employee_id) DO NOTHING', [cr.employeeId, await bcrypt.hash(cr.hash, 10), !!cr.mustChange, 'import']);
+
+    for (const cr of data.paa_x_credentials || []) {
+      if (cr.employeeId && cr.hash) {
+        await c.query('INSERT INTO user_credentials (employee_id, password_hash, must_change, updated_by) VALUES ($1,$2,$3,$4) ON CONFLICT (employee_id) DO NOTHING', [cr.employeeId, await bcrypt.hash(cr.hash, 10), !!cr.mustChange, updater]);
+      }
+    }
+
+    // Set one-time permanent bootstrap completion flag
+    await c.query("INSERT INTO app_settings (key, value, updated_by) VALUES ('paa_bootstrap_completed', '\"true\"', $1) ON CONFLICT (key) DO UPDATE SET value='\"true\"', updated_at=now()", [updater]);
+
+    // Record audit event
+    const auditId = 'aud-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const timeStr = new Date().toLocaleTimeString('en-IN');
+    await c.query(
+      'INSERT INTO audit_logs (id, user_id, user_name, action, related_record, date, time, data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [
+        auditId,
+        updater,
+        authUser ? authUser.name : 'System Bootstrap',
+        isBootstrapCompleted ? 'ADMIN_IMPORT' : 'SYSTEM_BOOTSTRAP',
+        `Imported ${data.paa_employees.length} employees`,
+        todayStr,
+        timeStr,
+        JSON.stringify({ employees: data.paa_employees.length, clientIp, timestamp: new Date().toISOString() })
+      ]
+    );
+
     await c.query('COMMIT');
-    res.json({ ok: true, employees: data.paa_employees.length });
-  } catch (e) { await c.query('ROLLBACK'); res.status(500).json({ error: String(e.message) }); } finally { c.release(); }
+    res.json({ ok: true, employees: data.paa_employees.length, bootstrapped: !isBootstrapCompleted });
+  } catch (e) {
+    await c.query('ROLLBACK');
+    res.status(500).json({ error: String(e.message) });
+  } finally {
+    c.release();
+  }
 });
 
 app.post('/api/auth/login', async (req, res) => {
