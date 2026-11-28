@@ -145,18 +145,66 @@ export async function initDb(): Promise<void> {
   window.addEventListener('beforeunload', () => { for (const k of pending) { window.clearTimeout(timers[k]); push(k); } });
   if (!token()) { origRemove.call(sessionStorage, 'paa_x_session'); return; }
   try {
-    const r = await api('/bootstrap');
-    if (r.status === 401) { origRemove.call(localStorage, TOKEN); origRemove.call(sessionStorage, TOKEN); origRemove.call(sessionStorage, 'paa_x_session'); return; }
+    let r = await api('/bootstrap');
+    // Automatic retry on transient serverless cold-start 503 / 504
+    if (!r.ok && (r.status === 503 || r.status === 504)) {
+      await new Promise((res) => setTimeout(res, 1200));
+      r = await api('/bootstrap');
+    }
+    if (r.status === 401) {
+      origRemove.call(localStorage, TOKEN);
+      origRemove.call(sessionStorage, TOKEN);
+      origRemove.call(sessionStorage, 'paa_x_session');
+      return;
+    }
     if (!r.ok) throw new Error(r.j?.error || String(r.status));
-    writeAll(r.j.data); cursor = r.j.cursor;
+    writeAll(r.j.data);
+    cursor = r.j.cursor;
     origSet.call(sessionStorage, 'paa_x_session', JSON.stringify({ userId: r.j.me.id }));
     ready = true;
     window.setInterval(async () => {
       if (!ready || document.hidden) return;
-      try { const c = await api('/changes?since=' + cursor); if (c.ok) { cursor = c.j.cursor; if (c.j.stores.length) banner(`Your team updated: ${c.j.stores.slice(0, 4).map(labelOf).join(', ')}`, { label: 'Refresh', run: async () => { await flush(); location.reload(); } }); } } catch { /* offline */ }
+      try {
+        const c = await api('/changes?since=' + cursor);
+        if (c.ok) {
+          cursor = c.j.cursor;
+          if (c.j.stores.length) {
+            banner(`Your team updated: ${c.j.stores.slice(0, 4).map(labelOf).join(', ')}`, {
+              label: 'Refresh',
+              run: async () => {
+                await flush();
+                location.reload();
+              },
+            });
+          }
+        }
+      } catch {
+        /* offline */
+      }
     }, 20000);
   } catch (e: any) {
-    document.body.innerHTML = `<div style="font:14px Inter,Segoe UI,Arial;max-width:520px;margin:12vh auto;padding:28px;border:1px solid #E5E7EB;border-radius:14px;color:#0B1738"><h2 style="margin:0 0 8px">AgencyOS server is not running</h2><p>The app could not reach the database server (${String(e?.message || e)}).</p><p>Open a second PowerShell in the project folder and run:<br><code style="background:#F1F4FA;padding:4px 8px;border-radius:6px;display:inline-block;margin-top:6px">npm.cmd run server</code></p><p>Then refresh this page.</p></div>`;
+    const isCloud = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+    if (isCloud) {
+      document.body.innerHTML = `
+        <div style="font-family:Inter,Segoe UI,Arial,sans-serif;max-width:480px;margin:15vh auto;padding:32px;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.08);color:#0B1738;text-align:center">
+          <div style="width:48px;height:48px;margin:0 auto 16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#DC2626;font-size:20px;font-weight:bold">!</div>
+          <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;color:#0B1738">Service Temporarily Unavailable</h2>
+          <p style="font-size:13.5px;color:#64748B;line-height:1.5;margin:0 0 24px">
+            The workspace database service is experiencing high latency or re-initializing. Please try reconnecting in a few moments.
+          </p>
+          <div style="display:flex;gap:10px;justify-content:center">
+            <button onclick="location.reload()" style="background:#0B1738;color:#FFFFFF;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">
+              Retry Connection
+            </button>
+            <button onclick="localStorage.removeItem('paa_token');sessionStorage.removeItem('paa_token');sessionStorage.removeItem('paa_x_session');location.reload()" style="background:#F1F5F9;color:#334155;border:1px solid #CBD5E1;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">
+              Sign In Again
+            </button>
+          </div>
+        </div>
+      `;
+    } else {
+      document.body.innerHTML = `<div style="font:14px Inter,Segoe UI,Arial;max-width:520px;margin:12vh auto;padding:28px;border:1px solid #E5E7EB;border-radius:14px;color:#0B1738"><h2 style="margin:0 0 8px">AgencyOS server is not running</h2><p>The app could not reach the database server (${String(e?.message || e)}).</p><p>Open a second PowerShell in the project folder and run:<br><code style="background:#F1F4FA;padding:4px 8px;border-radius:6px;display:inline-block;margin-top:6px">npm.cmd run server</code></p><p>Then refresh this page.</p></div>`;
+    }
     throw e;
   }
 }

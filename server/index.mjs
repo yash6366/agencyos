@@ -369,14 +369,19 @@ async function runMigrationWithRetry(retries = E.VERCEL ? 1 : 3) {
   return false;
 }
 
-export const READY = runMigrationWithRetry();
+let readyPromise = runMigrationWithRetry();
 
 app.use(async (req, res, next) => {
   if (OPEN.includes(req.path)) return next();
   if (isReady) return next();
   try {
-    await READY;
+    if (readyPromise) {
+      await readyPromise;
+    }
     if (isReady) return next();
+    // Dynamic retry for serverless cold-start recovery
+    const recovered = await runMigrationWithRetry(1);
+    if (recovered) return next();
     res.status(503).json({ error: 'Database not reachable: ' + (readyError?.message || 'Database initializing') });
   } catch (e) {
     res.status(503).json({ error: 'Database not reachable: ' + e.message });

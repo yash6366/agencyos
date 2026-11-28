@@ -19,14 +19,17 @@ export const IS_VERCEL = Boolean(E.VERCEL);
 export const USE_SSL = /^(1|true|yes|require)$/i.test(E.DB_SSL || '') || /supabase/i.test((E.DATABASE_URL || '') + (E.DB_HOST || ''));
 export const SSL = USE_SSL ? { rejectUnauthorized: false } : undefined;
 
-const poolConfig = E.DATABASE_URL && !E.DB_PASSWORD
-  ? { connectionString: E.DATABASE_URL.replace(/[?&]sslmode=[^&]*/, ''), ssl: SSL, max: IS_VERCEL ? 2 : 10 }
-  : { ...DB_CONFIG, ssl: SSL, max: IS_VERCEL ? 2 : 10 };
+const rawUrl = (E.DATABASE_URL || '').trim();
+const connectionString = rawUrl ? rawUrl.replace(/[?&]sslmode=[^&]*/, '') : null;
+
+const poolConfig = connectionString
+  ? { connectionString, ssl: SSL, max: IS_VERCEL ? 3 : 10 }
+  : { ...DB_CONFIG, ssl: SSL, max: IS_VERCEL ? 3 : 10 };
 
 export const pool = new pg.Pool({
   ...poolConfig,
-  idleTimeoutMillis: IS_VERCEL ? 1000 : 30000,
-  connectionTimeoutMillis: IS_VERCEL ? 4000 : 10000,
+  idleTimeoutMillis: IS_VERCEL ? 2000 : 30000,
+  connectionTimeoutMillis: IS_VERCEL ? 15000 : 10000,
 });
 
 // Resilient error handling preventing uncaught exception crashes on dropped idle sockets
