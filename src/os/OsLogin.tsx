@@ -15,6 +15,7 @@ import {
   ArrowRight,
   ShieldCheck,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Loader2,
   KeyRound,
@@ -22,6 +23,23 @@ import {
   BarChart3,
   Server
 } from 'lucide-react';
+
+const normalizeAuthError = (msg: string): string => {
+  if (!msg) return '';
+  // Convert any unpolished legacy strings to enterprise standards
+  if (msg.includes('Wrong password') || msg.includes('attempt(s) left') || msg.includes('Incorrect password')) {
+    const match = msg.match(/(\d+)\s*attempt/i);
+    const count = match ? parseInt(match[1], 10) : null;
+    if (count === 1) {
+      return 'Invalid credentials. Warning: 1 attempt remaining before your account is temporarily locked for 15 minutes.';
+    }
+    return 'Invalid work email, employee ID, or password.';
+  }
+  if (msg.includes('Too many wrong attempts') || msg.includes('multiple failed attempts')) {
+    return 'Your account has been temporarily locked due to consecutive unsuccessful sign-in attempts. Please try again in 15 minutes or contact your system administrator.';
+  }
+  return msg;
+};
 
 export const OsLogin: React.FC = () => {
   const { employees, login } = useApp();
@@ -99,7 +117,7 @@ export const OsLogin: React.FC = () => {
         if (serverError.includes('Cannot reach the AgencyOS server')) {
           return setErr('Unable to reach the AgencyOS authentication service. Please check your network connection or try again later.');
         }
-        return setErr(serverError);
+        return setErr(normalizeAuthError(serverError));
       }
 
       // 2. Standalone / Offline Authentication Mode
@@ -111,21 +129,21 @@ export const OsLogin: React.FC = () => {
       if (!emp) {
         setBusy(false);
         submittingRef.current = false;
-        return setErr('Invalid email/employee ID or password.');
+        return setErr('Invalid work email, employee ID, or password.');
       }
 
       const lockedUntil = readKey<Record<string, number>>('paa_x_lockouts', {})[emp.id] || 0;
       if (lockedUntil > Date.now()) {
         setBusy(false);
         submittingRef.current = false;
-        return setErr('Account locked due to multiple failed attempts. Please retry after 15 minutes or contact your Administrator.');
+        return setErr('Your account has been temporarily locked due to consecutive unsuccessful sign-in attempts. Please try again in 15 minutes or contact your system administrator.');
       }
 
       if (emp.status === 'inactive') {
         log({ employeeId: emp.id, name: emp.name, role: emp.role, portal: 'os', ok: false, reason: 'inactive' });
         setBusy(false);
         submittingRef.current = false;
-        return setErr('This account has been deactivated. Please contact HR or the Agency Founder.');
+        return setErr('This account has been deactivated. Please contact your system administrator or HR.');
       }
 
       const cred = readKey<Credential[]>(CRED_KEY, []).find((c) => c.employeeId === emp.id);
@@ -147,11 +165,18 @@ export const OsLogin: React.FC = () => {
           const l = readKey<Record<string, number>>('paa_x_lockouts', {});
           l[emp.id] = Date.now() + 15 * 60 * 1000;
           writeKey('paa_x_lockouts', l);
+          setBusy(false);
+          submittingRef.current = false;
+          return setErr('Your account has been temporarily locked due to consecutive unsuccessful sign-in attempts. Please try again in 15 minutes or contact your system administrator.');
         }
 
         setBusy(false);
         submittingRef.current = false;
-        return setErr(`Incorrect password. ${Math.max(0, 5 - list.length)} attempt(s) remaining before a 15-minute lockout.`);
+        const remaining = Math.max(0, 5 - list.length);
+        if (remaining === 1) {
+          return setErr('Invalid credentials. Warning: 1 attempt remaining before your account is temporarily locked for 15 minutes.');
+        }
+        return setErr('Invalid work email, employee ID, or password.');
       }
 
       // Successful client-side authentication
@@ -307,16 +332,38 @@ export const OsLogin: React.FC = () => {
 
                 {/* Status / Error Notifications */}
                 {err && (
-                  <div className="login-alert error" role="alert" aria-live="assertive">
-                    <AlertCircle size={18} className="login-alert-icon" aria-hidden="true" />
-                    <div className="login-alert-msg">{err}</div>
+                  <div
+                    className={`login-alert ${
+                      err.toLowerCase().includes('warning') || err.toLowerCase().includes('remaining')
+                        ? 'warning'
+                        : 'error'
+                    }`}
+                    role="alert"
+                    aria-live="assertive"
+                  >
+                    {err.toLowerCase().includes('warning') || err.toLowerCase().includes('remaining') ? (
+                      <AlertTriangle size={18} className="login-alert-icon" aria-hidden="true" />
+                    ) : (
+                      <AlertCircle size={18} className="login-alert-icon" aria-hidden="true" />
+                    )}
+                    <div className="login-alert-content">
+                      <div className="login-alert-title">
+                        {err.toLowerCase().includes('warning') || err.toLowerCase().includes('remaining')
+                          ? 'Security Warning'
+                          : 'Sign-In Failed'}
+                      </div>
+                      <div className="login-alert-msg">{err}</div>
+                    </div>
                   </div>
                 )}
 
                 {info && (
                   <div className="login-alert info" role="status" aria-live="polite">
                     <CheckCircle2 size={18} className="login-alert-icon" aria-hidden="true" />
-                    <div className="login-alert-msg">{info}</div>
+                    <div className="login-alert-content">
+                      <div className="login-alert-title">Success</div>
+                      <div className="login-alert-msg">{info}</div>
+                    </div>
                   </div>
                 )}
 
@@ -461,16 +508,38 @@ export const OsLogin: React.FC = () => {
                 </div>
 
                 {err && (
-                  <div className="login-alert error" role="alert" aria-live="assertive">
-                    <AlertCircle size={18} className="login-alert-icon" aria-hidden="true" />
-                    <div className="login-alert-msg">{err}</div>
+                  <div
+                    className={`login-alert ${
+                      err.toLowerCase().includes('warning') || err.toLowerCase().includes('remaining')
+                        ? 'warning'
+                        : 'error'
+                    }`}
+                    role="alert"
+                    aria-live="assertive"
+                  >
+                    {err.toLowerCase().includes('warning') || err.toLowerCase().includes('remaining') ? (
+                      <AlertTriangle size={18} className="login-alert-icon" aria-hidden="true" />
+                    ) : (
+                      <AlertCircle size={18} className="login-alert-icon" aria-hidden="true" />
+                    )}
+                    <div className="login-alert-content">
+                      <div className="login-alert-title">
+                        {err.toLowerCase().includes('warning') || err.toLowerCase().includes('remaining')
+                          ? 'Security Notice'
+                          : 'Request Failed'}
+                      </div>
+                      <div className="login-alert-msg">{err}</div>
+                    </div>
                   </div>
                 )}
 
                 {info && (
                   <div className="login-alert info" role="status" aria-live="polite">
                     <CheckCircle2 size={18} className="login-alert-icon" aria-hidden="true" />
-                    <div className="login-alert-msg">{info}</div>
+                    <div className="login-alert-content">
+                      <div className="login-alert-title">Success</div>
+                      <div className="login-alert-msg">{info}</div>
+                    </div>
                   </div>
                 )}
 

@@ -147,6 +147,14 @@ async function upsertTable(client, key, rec, pos, by) {
   const ph = cols.map((_, i) => `$${i + 5}`);
   const nextVersion = (Number(rec.version) || 0) + 1;
   const nextRec = { ...rec, version: nextVersion };
+  if (d.appendOnly) {
+    await client.query(
+      `INSERT INTO ${d.t} (id, data, pos, version, ${cols.join(', ')}, updated_by) VALUES ($1, $2, $3, $4, ${ph.join(', ')}, $${cols.length + 5})
+       ON CONFLICT (id) DO NOTHING`,
+      [String(rec.id), nextRec, pos, nextVersion, ...vals, by]
+    );
+    return;
+  }
   await client.query(`INSERT INTO ${d.t} (id, data, pos, version, ${cols.join(', ')}, updated_by) VALUES ($1, $2, $3, $4, ${ph.join(', ')}, $${cols.length + 5})
     ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, pos = EXCLUDED.pos, version = ${d.t}.version + 1, ${cols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')}, updated_at = now(), updated_by = EXCLUDED.updated_by`,
   [String(rec.id), nextRec, pos, nextVersion, ...vals, by]);
@@ -619,12 +627,12 @@ app.post('/api/auth/login', async (req, res) => {
   const emp = empRes.rows[0]?.data;
   if (!emp) {
     log(null, false, 'unknown login');
-    return res.status(401).json({ error: 'Invalid email or password.' });
+    return res.status(401).json({ error: 'Invalid work email, employee ID, or password.' });
   }
 
   if (emp.status === 'inactive') {
     log(emp, false, 'inactive');
-    return res.status(403).json({ error: 'This account is suspended. Contact the Founder or HR.' });
+    return res.status(403).json({ error: 'This account has been deactivated. Please contact your system administrator or HR.' });
   }
 
   // Fetch failed attempts and user credentials in parallel
@@ -637,7 +645,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   const fails = failsRes.rows[0]?.n || 0;
   if (fails >= 5) {
-    return res.status(429).json({ error: 'Too many wrong attempts. Try again after 15 minutes or ask HR / Admin to reset your password.' });
+    return res.status(429).json({ error: 'Your account has been temporarily locked due to consecutive unsuccessful sign-in attempts. Please try again after 15 minutes or contact your system administrator.' });
   }
 
   const cr = crRes.rows[0];
@@ -677,9 +685,10 @@ app.post('/api/auth/login', async (req, res) => {
 
   if (!ok) {
     log(emp, false, 'wrong password');
-    const msg = !cr
-      ? 'Account password is not set or temporary activation has expired. Please contact an Administrator to reset your credentials.'
-      : `Wrong password. ${Math.max(0, 4 - fails)} attempt(s) left before a 15-minute lock.`;
+    const remaining = Math.max(0, 4 - fails);
+    const msg = remaining === 1
+      ? 'Invalid credentials. Warning: 1 attempt remaining before your account is temporarily locked for 15 minutes.'
+      : 'Invalid work email, employee ID, or password.';
     return res.status(401).json({ error: msg });
   }
 
@@ -954,13 +963,14 @@ app.post('/api/sync', auth, async (req, res) => {
         await upsertTable(c, key, next, Number(pos) || 0, u.id);
       }
       for (const id of deletes) {
+        if (d.appendOnly) continue;
         const old = (await c.query(`SELECT data FROM ${d.t} WHERE id=$1`, [String(id)])).rows[0]?.data;
         if (!old) continue;
         if (!(await canWriteRow(u, key, old, null, 'D'))) { denied.push(id); continue; }
         await c.query('INSERT INTO deleted_records (store, record_id, data, deleted_by) VALUES ($1,$2,$3,$4)', [key, String(id), old, u.id]);
         await c.query(`DELETE FROM ${d.t} WHERE id=$1`, [String(id)]);
       }
-      if (Array.isArray(order)) for (const [id, p] of order) await c.query(`UPDATE ${d.t} SET pos=$2 WHERE id=$1`, [String(id), p]);
+      if (Array.isArray(order) && !d.appendOnly) for (const [id, p] of order) await c.query(`UPDATE ${d.t} SET pos=$2 WHERE id=$1`, [String(id), p]);
     } else {
       const fo = FOUNDER_KEYS.includes(key) && !(key === 'paa_company' && u.role === 'admin') && u.role !== 'super_admin';
       const pay = PAY_KEYS.includes(key) && !PAYROLL_ROLES.includes(u.role);
